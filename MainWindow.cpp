@@ -60,28 +60,28 @@ inline QImage cvMatToQImage(const cv::Mat &mat)
   {
   // 8-bit, 3 channel
   case CV_8UC3:
-  {
+    {
     QImage image(mat.data, mat.cols, mat.rows, static_cast<int>(mat.step), QImage::Format_RGB888);
     return image.rgbSwapped();
-  }
+    }
   // 8-bit, 1 channel
   case CV_8UC1:
-  {
+    {
     // creating a color table only the first time
     static QVector<QRgb> sColorTable;
 
     if (sColorTable.isEmpty())
-    {
-      for (int i = 0; i < 256; i++)
       {
+      for (int i = 0; i < 256; i++)
+        {
         sColorTable.append(qRgb(i, i, i));
         //NOTE : /!\ takes time
+        }
       }
-    }
     QImage image(mat.data, mat.cols, mat.rows, static_cast<int>(mat.step), QImage::Format_Indexed8);
     image.setColorTable(sColorTable);
     return image;
-  }
+    }
   default:
     qWarning() << "Type not handled : " << mat.type();
     break;
@@ -121,12 +121,14 @@ inline cv::Mat QImageToCvMat(const QImage& image, bool inCloneImageData = true)
 
 void MainWindow::on_proj_display_clicked()
 {
-  cv::Mat mat = this->Projector.CreateLineImage();
+  //cv::Mat mat = this->Projector.CreateLineImage();
+  cv::Mat mat = this->Projector.CreateLinePattern();
+
   if (!mat.data)
-  {
+    {
     std::cout << "Could not open or find the image" << std::endl;
     return;
-  }
+    }
   //std::vector<cv::Point2i> proj_points = this->Projector.GetCoordLine(mat);
   //std::cout << proj_points << std::endl;
   QPixmap pixmap = QPixmap::fromImage(cvMatToQImage(mat));
@@ -215,85 +217,153 @@ void MainWindow::_on_new_projector_image(QPixmap pixmap)
 void MainWindow::on_analyze_clicked()
 {
   // Substract 2 images to keep only the line illuminated by the projector
-  char* dir = "\Results\\";
+  char* dir = "Results\\";
   QString filename = QFileDialog::getOpenFileName(this, "Open decoded files", dir);
   if (filename.isEmpty())
-  {
+    {
     return;
-  }
+    }
   cv::Mat mat_color = cv::imread(qPrintable(filename), CV_LOAD_IMAGE_COLOR);
-  cv::Mat mat_gray;
-  cv::cvtColor(mat_color, mat_gray, CV_BGR2GRAY);
+  //cv::Mat mat_gray;
+  //cv::cvtColor(mat_color, mat_gray, CV_BGR2GRAY);
 
   filename = QFileDialog::getOpenFileName(this, "Open decoded files", dir);
   if (filename.isEmpty())
-  {
+    {
     return;
-  }
+    }
   cv::Mat mat_color_ref = cv::imread(qPrintable(filename), CV_LOAD_IMAGE_COLOR);
-  cv::Mat mat_gray_ref;
-  cv::cvtColor(mat_color_ref, mat_gray_ref, CV_BGR2GRAY);
+  //cv::Mat mat_gray_ref;
+  //cv::cvtColor(mat_color_ref, mat_gray_ref, CV_BGR2GRAY);
   
-  if (!mat_gray.data || !mat_gray_ref.data)
-  {
+  /*if (!mat_gray.data || !mat_gray_ref.data)
+    {
     qCritical() << "ERROR invalid cv::Mat gray data\n";
-  }
+    }
   cv::Mat mat = abs(mat_gray - mat_gray_ref);
   if (!mat.data || mat.type() != CV_8UC1)
+    {
+    qCritical() << "ERROR invalid cv::Mat data\n";
+    }
+  // TODO : check if the calib file is valid
+  cv::resize(mat, mat, cv::Size(500, 500));
+  cv::imshow("Image line", mat);
+  cv::waitKey(0);
+  */
+  cv::Mat mat_c = abs(mat_color - mat_color_ref);
+  if (!mat_c.data || mat_c.type() != CV_8UC3)
   {
     qCritical() << "ERROR invalid cv::Mat data\n";
   }
-  // check if the calib file is valid
+  // TODO : check if the calib file is valid
+  cv::resize(mat_c, mat_c, cv::Size(500, 500));
+  cv::imshow("Image line", mat_c);
+  cv::waitKey(0);
 
   std::vector<cv::Point2i> cam_points;
-  
-  for (int i = 0; i < mat.rows; i++)
+  std::vector<cv::Vec3b> cam_colors;
+  cv::Mat res = cv::Mat::zeros(mat_c.rows, mat_c.cols, CV_8UC1);
+  for (int i = 0; i < mat_c.rows; i++)
   {
-    for (int j = 0; j < mat.cols; j++)
+    for (int j = 0; j < mat_c.cols; j++)
     {
-      if ((int)mat.at<unsigned char>(i, j) > 50)
+      if (mat_c.at<cv::Vec3b>(i, j).val[0] > 100 || mat_c.at<cv::Vec3b>(i, j).val[1] > 100 || mat_c.at<cv::Vec3b>(i, j).val[2] > 100)
       {
+        //std::cout << mat_c.at<cv::Vec3b>(i, j) << std::endl;
+        res.at<unsigned char>(i, j) = 255;
         cam_points.push_back(cv::Point2i(i, j));
+        cam_colors.push_back(mat_c.at<cv::Vec3b>(i, j));
       }
     }
   }
-  
-  QImage im = this->Projector.GetPixmap().toImage().convertToFormat(QImage::Format_Indexed8, Qt::AvoidDither);
-  std::cout << im.format() << std::endl;
-  cv::Mat mat_proj = QImageToCvMat(im);
+  cv::resize(res, res, cv::Size(500, 500));
+  cv::imshow("Image result", res);
+  cv::waitKey(0);
 
-  std::vector<cv::Point2i> proj_points = this->Projector.GetCoordLine(mat_proj);
-  int size_proj = proj_points.size();
-
+  // find the coord of the projector corresponding to one on cam_points
+  std::vector<cv::Vec2i> proj_coordinates;
+  cv::Vec2i proj_result;
+  std::vector<cv::Point2i>::iterator it_cam_points = cam_points.begin();
+  std::vector<cv::Vec3b>::iterator it_cam_colors = cam_colors.begin();
+  std::vector<cv::Vec3b>::iterator it;
+  std::vector<int> code_colors;
+  double distance;
+  cv::Point3d p;
   cv::Mat pointcloud = cv::Mat(this->Projector.GetHeight(), this->Projector.GetWidth(), CV_32FC3);
   // imageTest is used to control which points have been used on the projector for the reconstruction
   cv::Mat imageTest = cv::Mat::zeros(this->Projector.GetHeight(), this->Projector.GetWidth(), CV_8UC1);
-
-  double distance_min, distance;
-  cv::Point2i good_proj_point;
-  cv::Point3d p, good_p;
-  std::vector<cv::Point2i>::iterator it_cam = cam_points.begin();
-  for (it_cam; it_cam != cam_points.end(); ++it_cam)
+  for (it_cam_points; it_cam_points != cam_points.end(); ++it_cam_points, ++it_cam_colors)
   {
-    distance_min = 9999;
-    std::vector<cv::Point2i>::iterator it_proj = proj_points.begin();
-    for (it_proj; it_proj != proj_points.end(); ++it_proj)
+    // get the code of the current point and of the 7 next points
+    int good_points = 0;
+    int crt_code = getCode(*it_cam_colors);
+    while (crt_code == 99)
     {
-      triangulate_stereo(this->Calib.Cam_K, this->Calib.Cam_kc, this->Calib.Proj_K, this->Calib.Proj_kc, this->Calib.R.t(), this->Calib.T, *it_cam, *it_proj, p, &distance);
-      if (distance < distance_min)
+      it_cam_colors++;
+      crt_code = getCode(*it_cam_colors);
+    }
+    int next_code;
+    it = it_cam_colors;
+    
+    code_colors.clear();
+    code_colors.push_back(crt_code);
+    while (good_points != 7 && it!=cam_colors.end())
+    {
+      it++;
+      next_code = getCode(*it);
+      if (next_code == 99)
       {
-        distance_min = distance;
-        good_p = p;
-        good_proj_point = *it_proj;
+        std::cerr << "Error in the detected color" << std::endl;
+      }
+      else if (next_code != crt_code)
+      {
+        code_colors.push_back(next_code);
+        crt_code = next_code;
+        good_points++;
       }
     }
-    cv::Vec3f & cloud_point = pointcloud.at<cv::Vec3f>(good_proj_point.x, good_proj_point.y);
-    cloud_point[0] = good_p.x;
-    cloud_point[1] = good_p.y;
-    cloud_point[2] = good_p.z;
-    imageTest.at<unsigned char>(good_proj_point.x, good_proj_point.y) = 255;
+    // We have the 8 points needed to have the correspondant point of the projector
+    // parcours de la table pour trouver le meme code
+    std::vector<int> pattern = this->Projector.GetPattern();
+    std::vector<int>::iterator it_pattern = pattern.begin();
+    int i = 0;
+    bool correct = false;
+    while ((it_pattern != pattern.end()) || (correct = false))
+    {
+      if (*it_pattern == code_colors.at(0))
+      {
+        it_pattern++;
+        if (*it_pattern == code_colors.at(1))
+        {
+          it_pattern++;
+          if (*it_pattern == code_colors.at(2))
+          {
+             // good code ! 
+             correct = true;
+          }
+        }
+      }
+      else
+      {
+        it_pattern++;
+        i++;
+      }
+    }
+    if (it_pattern == pattern.end())
+    {
+      std::cerr << "Error : fail to find the corresponding point in the projector coordinates" << std::endl;
+      continue;
+    }
+    // i corresponds to the column of the projector point we are looking for
+    triangulate_stereo(this->Calib.Cam_K, this->Calib.Cam_kc, this->Calib.Proj_K, this->Calib.Proj_kc, this->Calib.R.t(), this->Calib.T, *it_cam_points, cv::Point2i(this->Projector.GetRow(),i), p, &distance);
+    cv::Vec3f & cloud_point = pointcloud.at<cv::Vec3f>(this->Projector.GetRow(), i);
+    cloud_point[0] = p.x;
+    cloud_point[1] = p.y;
+    cloud_point[2] = p.z;
+    imageTest.at<unsigned char>(this->Projector.GetRow(), i) = 255;
+   
   }
-   if (!pointcloud.data)
+  if (!pointcloud.data)
   {
     qCritical() << "ERROR, reconstruction failed\n";
   }
@@ -376,8 +446,29 @@ cv::Point3d MainWindow::approximate_ray_intersection(const cv::Point3d & v1, con
   cv::Point3d p = 0.5*(p1 + p2);
 
   if (distance != NULL)
-  {
+    {
     *distance = cv::norm(p2 - p1);
-  }
+    }
   return p;
+}
+
+int MainWindow::getCode(cv::Vec3b cam_color)
+{
+  if (cam_color[0] > 70 && cam_color[1] < 70 && cam_color[2] < 70)
+  {
+    return 0;
+  }
+  else if (cam_color[1] > 70 && cam_color[0] < 70 && cam_color[2] < 70)
+  {
+    return 1;
+  }
+  else if (cam_color[2] > 70 && cam_color[0] < 70 && cam_color[1] < 70)
+  {
+    return 2;
+  }
+  else
+  {
+    std::cout << "Color not valid : " << cam_color << std::endl;
+    return 99;
+  }
 }

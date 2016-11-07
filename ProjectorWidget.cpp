@@ -32,18 +32,65 @@ cv::Mat ProjectorWidget::CreateLineImage()
   return image;
 }
 
+cv::Mat ProjectorWidget::CreateLinePattern()
+{
+  std::vector<int> pattern{ 0,1,2,1,2,0,2,0,1,0,2,1,0,1,2 };
+
+  this->SetPattern(pattern);
+
+  int size = pattern.size();
+  std::cout << "size = " << size << std::endl;
+  int step = this->GetWidth() / size;
+  std::cout << "step = " << step << std::endl;
+  
+  cv::Mat im = cv::Mat::zeros(this->Height, this->Width, CV_8UC3);
+  /*if (size != this->Width)
+  {
+    std::cerr << "Error : the size of the projector and of the de Bruijn's pattern don't match." << std::endl;
+    return im;
+  }*/
+  int pos = 0;
+  for (int i = 0; i < size; i++)
+  {
+    cv::Vec3b color;
+    if (pattern.at(i) == 0)
+    {
+      color = { 255,0,0 };
+    }
+    else if (pattern.at(i) == 1)
+    {
+      color = { 0,255,0 };
+    }
+    else if (pattern.at(i) == 2)
+    {
+      color = { 0,0,255 };
+    }
+    for (int j = 0; j < this->GetHeight(); j++)
+    {
+      for (pos = i * step; pos < (i + 1) * step; pos++)
+      {
+        im.at<cv::Vec3b>(j, pos) = color;
+      }
+    }
+  }
+  return im;
+}
+
 std::vector<cv::Point2i> ProjectorWidget::GetCoordLine(cv::Mat image)
 {
   // TODO: condition on type of matrix 
   std::vector<cv::Point2i> coord;
   for (int i = 0; i < image.rows; i++)
   {
-    unsigned char *row = image.ptr<unsigned char>(i);
-    //std::cout << "ligne : " << i << std::endl;
-    //std::cout << "row :" << *row << std::endl;
     for (int j = 0; j < image.cols; j++)
     {
-      if ((int)row[j] != 0) // or =255
+      // black and white
+      if (image.type() == CV_8UC1 && image.at<unsigned char>(i,j) != 0) // or =255
+      {
+        coord.push_back(cv::Point2i(i, j));
+      }
+      // color
+      else if (image.type() == CV_8UC3 && (image.at<cv::Vec3b>(i, j)[0] == 255 || image.at<cv::Vec3b>(i, j)[1] == 255 || image.at<cv::Vec3b>(i, j)[2] == 255))
       {
         coord.push_back(cv::Point2i(i, j));
       }

@@ -211,7 +211,11 @@ void CameraInput::RecordImages()
     }
     // Create a unique filename
     std::ostringstream filename;
-    filename << "Results\\" << camInfo.serialNumber << "-" << imageCount << ".bmp";
+    QString date = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh.mm.ss.zzz");
+    //QString name = camInfo.serialNumber + date;
+    //std::cout << "name : " << name.toStdString() << std::endl;
+    //filename << "Results\\" << name.toStdString() << ".bmp";
+    filename << "Results\\" << camInfo.serialNumber << "-" << imageCount << "-" << date.toStdString() << ".bmp";
 
     // Save the image. If a file format is not passed in, then the file
     // extension is parsed to attempt to determine the file format.

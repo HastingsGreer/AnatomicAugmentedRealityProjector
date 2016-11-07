@@ -19,6 +19,7 @@ public:
   ~ProjectorWidget();
 
   cv::Mat CreateLineImage();
+  cv::Mat CreateLinePattern();
   std::vector<cv::Point2i> GetCoordLine(cv::Mat image);
 
   QPixmap GetPixmap() const { return this->Pixmap; };
@@ -26,11 +27,13 @@ public:
   int GetHeight() const { return this->Height; };
   int GetLineThickness() const { return this->LineThickness; };
   int GetRow() const { return this->Row; };
+  std::vector<int> GetPattern() const { return this->Pattern; };
   void SetPixmap(QPixmap image) { this->Pixmap = image; };
   void SetWidth(int x) { this->Width = x; };
   void SetHeight(int y) { this->Height = y; };
   void SetLineThickness(int thickness) { this->LineThickness = thickness; };
   void SetRow(int r) { this->Row = r; };
+  void SetPattern(std::vector<int> pattern) { this->Pattern = pattern; };
 
   void start();
 
@@ -46,7 +49,7 @@ private:
   int Width;
   int LineThickness;
   int Row;
-
+  std::vector<int> Pattern;
 };
 
 #endif  /* __PROJECTOR_HPP__ */
