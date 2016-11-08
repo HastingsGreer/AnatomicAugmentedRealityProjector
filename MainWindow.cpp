@@ -224,8 +224,6 @@ void MainWindow::on_analyze_clicked()
     return;
     }
   cv::Mat mat_color = cv::imread(qPrintable(filename), CV_LOAD_IMAGE_COLOR);
-  //cv::Mat mat_gray;
-  //cv::cvtColor(mat_color, mat_gray, CV_BGR2GRAY);
 
   filename = QFileDialog::getOpenFileName(this, "Open decoded files", dir);
   if (filename.isEmpty())
@@ -233,23 +231,7 @@ void MainWindow::on_analyze_clicked()
     return;
     }
   cv::Mat mat_color_ref = cv::imread(qPrintable(filename), CV_LOAD_IMAGE_COLOR);
-  //cv::Mat mat_gray_ref;
-  //cv::cvtColor(mat_color_ref, mat_gray_ref, CV_BGR2GRAY);
-  
-  /*if (!mat_gray.data || !mat_gray_ref.data)
-    {
-    qCritical() << "ERROR invalid cv::Mat gray data\n";
-    }
-  cv::Mat mat = abs(mat_gray - mat_gray_ref);
-  if (!mat.data || mat.type() != CV_8UC1)
-    {
-    qCritical() << "ERROR invalid cv::Mat data\n";
-    }
-  // TODO : check if the calib file is valid
-  cv::resize(mat, mat, cv::Size(500, 500));
-  cv::imshow("Image line", mat);
-  cv::waitKey(0);
-  */
+
   cv::Mat mat_c = abs(mat_color - mat_color_ref);
   if (!mat_c.data || mat_c.type() != CV_8UC3)
   {
@@ -269,7 +251,6 @@ void MainWindow::on_analyze_clicked()
     {
       if (mat_c.at<cv::Vec3b>(i, j).val[0] > 100 || mat_c.at<cv::Vec3b>(i, j).val[1] > 100 || mat_c.at<cv::Vec3b>(i, j).val[2] > 100)
       {
-        //std::cout << mat_c.at<cv::Vec3b>(i, j) << std::endl;
         res.at<unsigned char>(i, j) = 255;
         cam_points.push_back(cv::Point2i(i, j));
         cam_colors.push_back(mat_c.at<cv::Vec3b>(i, j));
@@ -280,7 +261,7 @@ void MainWindow::on_analyze_clicked()
   cv::imshow("Image result", res);
   cv::waitKey(0);
 
-  // find the coord of the projector corresponding to one on cam_points
+  // find the coord of the projector point corresponding to a point on cam_points
   std::vector<cv::Vec2i> proj_coordinates;
   cv::Vec2i proj_result;
   std::vector<cv::Point2i>::iterator it_cam_points = cam_points.begin();
