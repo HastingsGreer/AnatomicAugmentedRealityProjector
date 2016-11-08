@@ -19,7 +19,7 @@ public:
   ~ProjectorWidget();
 
   cv::Mat CreateLineImage();
-  cv::Mat CreateLinePattern();
+  cv::Mat CreateLinedeBruijn();
   std::vector<cv::Point2i> GetCoordLine(cv::Mat image);
 
   QPixmap GetPixmap() const { return this->Pixmap; };
@@ -27,13 +27,15 @@ public:
   int GetHeight() const { return this->Height; };
   int GetLineThickness() const { return this->LineThickness; };
   int GetRow() const { return this->Row; };
-  std::vector<int> GetPattern() const { return this->Pattern; };
+
+  std::vector<int> GetdeBruijn() const { return this->deBruijn; };
   void SetPixmap(QPixmap image) { this->Pixmap = image; };
   void SetWidth(int x) { this->Width = x; };
   void SetHeight(int y) { this->Height = y; };
   void SetLineThickness(int thickness) { this->LineThickness = thickness; };
   void SetRow(int r) { this->Row = r; };
-  void SetPattern(std::vector<int> pattern) { this->Pattern = pattern; };
+
+  void SetdeBruijn(std::vector<int> tab) { this->deBruijn = tab; };
 
   void start();
 
@@ -49,7 +51,7 @@ private:
   int Width;
   int LineThickness;
   int Row;
-  std::vector<int> Pattern;
+  std::vector<int> deBruijn;
 };
 
 #endif  /* __PROJECTOR_HPP__ */
