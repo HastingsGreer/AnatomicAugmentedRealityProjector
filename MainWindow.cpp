@@ -122,7 +122,7 @@ inline cv::Mat QImageToCvMat(const QImage& image, bool inCloneImageData = true)
 void MainWindow::on_proj_display_clicked()
 {
   //cv::Mat mat = this->Projector.CreateLineImage();
-  cv::Mat mat = this->Projector.CreateLinedeBruijn();
+  cv::Mat mat = this->Projector.CreateLinePattern();
 
   if (!mat.data)
     {
@@ -224,8 +224,6 @@ void MainWindow::on_analyze_clicked()
     return;
     }
   cv::Mat mat_color = cv::imread(qPrintable(filename), CV_LOAD_IMAGE_COLOR);
-  //cv::Mat mat_gray;
-  //cv::cvtColor(mat_color, mat_gray, CV_BGR2GRAY);
 
   filename = QFileDialog::getOpenFileName(this, "Open decoded files", dir);
   if (filename.isEmpty())
@@ -233,23 +231,7 @@ void MainWindow::on_analyze_clicked()
     return;
     }
   cv::Mat mat_color_ref = cv::imread(qPrintable(filename), CV_LOAD_IMAGE_COLOR);
-  //cv::Mat mat_gray_ref;
-  //cv::cvtColor(mat_color_ref, mat_gray_ref, CV_BGR2GRAY);
   
-  /*if (!mat_gray.data || !mat_gray_ref.data)
-    {
-    qCritical() << "ERROR invalid cv::Mat gray data\n";
-    }
-  cv::Mat mat = abs(mat_gray - mat_gray_ref);
-  if (!mat.data || mat.type() != CV_8UC1)
-    {
-    qCritical() << "ERROR invalid cv::Mat data\n";
-    }
-  // TODO : check if the calib file is valid
-  cv::resize(mat, mat, cv::Size(500, 500));
-  cv::imshow("Image line", mat);
-  cv::waitKey(0);
-  */
   cv::Mat mat_c = abs(mat_color - mat_color_ref);
   if (!mat_c.data || mat_c.type() != CV_8UC3)
   {
@@ -324,19 +306,19 @@ void MainWindow::on_analyze_clicked()
     }
     // We have the 8 points needed to have the correspondant point of the projector
     // parcours de la table pour trouver le meme code
-    std::vector<int> deBruijn = this->Projector.GetdeBruijn();
-    std::vector<int>::iterator it_deBruijn = deBruijn.begin();
+    std::vector<int> pattern = this->Projector.GetPattern();
+    std::vector<int>::iterator it_pattern = pattern.begin();
     int i = 0;
     bool correct = false;
-    while ((it_deBruijn != deBruijn.end()) || (correct = false))
+    while ((it_pattern != pattern.end()) || (correct = false))
     {
-      if (*it_deBruijn == code_colors.at(0))
+      if (*it_pattern == code_colors.at(0))
       {
-        it_deBruijn++;
-        if (*it_deBruijn == code_colors.at(1))
+        it_pattern++;
+        if (*it_pattern == code_colors.at(1))
         {
-          it_deBruijn++;
-          if (*it_deBruijn == code_colors.at(2))
+          it_pattern++;
+          if (*it_pattern == code_colors.at(2))
           {
              // good code ! 
              correct = true;
@@ -345,11 +327,11 @@ void MainWindow::on_analyze_clicked()
       }
       else
       {
-        it_deBruijn++;
+        it_pattern++;
         i++;
       }
     }
-    if (it_deBruijn == deBruijn.end())
+    if (it_pattern == pattern.end())
     {
       std::cerr << "Error : fail to find the corresponding point in the projector coordinates" << std::endl;
       continue;
@@ -385,160 +367,6 @@ void MainWindow::on_analyze_clicked()
       return;
     }
   }
-
-
-  /*std::vector<cv::Point2i> cam_points;
-  
-  for (int i = 0; i < mat.rows; i++)
-    {
-    for (int j = 0; j < mat.cols; j++)
-      {
-      if ((int)mat.at<unsigned char>(i, j) > 50)
-        {
-        cam_points.push_back(cv::Point2i(i, j));
-        }
-      }
-    }
-  */
-/*  QImage im = this->Projector.GetPixmap().toImage().convertToFormat(QImage::Format_Indexed8, Qt::AvoidDither);
-  cv::Mat mat_proj = QImageToCvMat(im);
-
-  std::vector<cv::Point2i> proj_points = this->Projector.GetCoordLine(mat_proj);
-  std::vector<cv::Point2i>::iterator it_proj = proj_points.begin();
-  std::vector<cv::Point3d> vec_w2;
-  std::vector<cv::Point3d> vec_v2;
-  cv::Mat inp2(1, 1, CV_64FC2);
-  cv::Mat outp2;
-  cv::Point3d w2, v2;
-  for (it_proj; it_proj != proj_points.end(); ++it_proj)
-  {
-    //to image camera coordinates
-    inp2.at<cv::Vec2d>(0, 0) = cv::Vec2d(it_proj->x, it_proj->y);
-
-    cv::undistortPoints(inp2, outp2, this->Calib.Proj_K, this->Calib.Proj_kc);
-    assert(outp2.type() == CV_64FC2 && outp2.rows == 1 && outp2.cols == 1);
-    const cv::Vec2d & outvec2 = outp2.at<cv::Vec2d>(0, 0);
-    cv::Point3d u2(outvec2[0], outvec2[1], 1.0);
-
-    //to world coordinates
-    w2 = cv::Point3d(cv::Mat(this->Calib.R.t()*(cv::Mat(u2) - this->Calib.T)));
-    vec_w2.push_back(w2);
-    //world rays
-    v2 = cv::Point3d(cv::Mat(this->Calib.R.t()*cv::Mat(u2)));
-    vec_v2.push_back(v2);
-  }
-  assert(vec_v2.size() == vec_w2.size());
-  assert(vec_v2.size() == proj_points.size());
-
-  cv::Mat pointcloud = cv::Mat(this->Projector.GetHeight(), this->Projector.GetWidth(), CV_32FC3);
-  // imageTest is used to control which points have been used on the projector for the reconstruction
-  cv::Mat imageTest = cv::Mat::zeros(this->Projector.GetHeight(), this->Projector.GetWidth(), CV_8UC1);
-  double distance_min, distance;
-  cv::Point2i good_proj_point;
-  cv::Point3d p, good_p;
-  std::vector<cv::Point2i>::iterator it_cam = cam_points.begin();
-  cv::Mat inp1(1, 1, CV_64FC2);
-  cv::Mat outp1;
-  cv::Point3d w1, v1;
-  for (it_cam; it_cam != cam_points.end(); ++it_cam)
-  {
-    //to image camera coordinates
-   
-    inp1.at<cv::Vec2d>(0, 0) = cv::Vec2d(it_cam->x, it_cam->y);
-    
-    cv::undistortPoints(inp1, outp1, this->Calib.Cam_K, this->Calib.Cam_kc);
-    assert(outp1.type() == CV_64FC2 && outp1.rows == 1 && outp1.cols == 1);
-    const cv::Vec2d & outvec1 = outp1.at<cv::Vec2d>(0, 0);
-    cv::Point3d u1(outvec1[0], outvec1[1], 1.0);
-
-    //to world coordinates
-    w1 = u1;
-    //world rays
-    v1 = w1;
-
-    //it_proj = proj_points.begin();
-    distance_min = 9999;
-    for (int i = 0; i < vec_v2.size(); i++)
-    {
-      p = approximate_ray_intersection(v1, w1, vec_v2.at(i), vec_w2.at(i), &distance);
-      if (distance < distance_min)
-      {
-        distance_min = distance;
-        good_p = p;
-        good_proj_point = proj_points.at(i);
-      }
-    }
-    cv::Vec3f & cloud_point = pointcloud.at<cv::Vec3f>(good_proj_point.x, good_proj_point.y);
-    cloud_point[0] = good_p.x;
-    cloud_point[1] = good_p.y;
-    cloud_point[2] = good_p.z;
-    imageTest.at<unsigned char>(good_proj_point.x, good_proj_point.y) = 255;
-  }
-  if (!pointcloud.data)
-  {
-    qCritical() << "ERROR, reconstruction failed\n";
-  }
-  cv::resize(imageTest, imageTest, cv::Size(500, 500));
-  cv::imshow("Image line", imageTest);
-  cv::waitKey(0);
-
-  QString name = "pointcloud";
-  filename = QFileDialog::getSaveFileName(this, "Save pointcloud", name + ".ply", "Pointclouds (*.ply)");
-  if (!filename.isEmpty())
-  {
-    std::cout << "Saving the pointcloud" << std::endl;
-    bool binary = false;
-    unsigned ply_flags = io_util::PlyPoints | (binary ? io_util::PlyBinary : 0);
-    bool success = io_util::write_ply(filename.toStdString(), pointcloud, ply_flags);
-    if (success == false)
-    {
-      qCritical() << "ERROR, saving the pointcloud failed\n";
-      return;
-    }
-  }*/
-
-  /*for (it_cam; it_cam != cam_points.end(); ++it_cam)
-    {
-    distance_min = 9999;
-    std::vector<cv::Point2i>::iterator it_proj = proj_points.begin();
-    for (it_proj; it_proj != proj_points.end(); ++it_proj)
-      {
-      triangulate_stereo(this->Calib.Cam_K, this->Calib.Cam_kc, this->Calib.Proj_K, this->Calib.Proj_kc, this->Calib.R.t(), this->Calib.T, *it_cam, *it_proj, p, &distance);
-      if (distance < distance_min)
-        {
-        distance_min = distance;
-        good_p = p;
-        good_proj_point = *it_proj;
-        }
-      }
-    cv::Vec3f & cloud_point = pointcloud.at<cv::Vec3f>(good_proj_point.x, good_proj_point.y);
-    cloud_point[0] = good_p.x;
-    cloud_point[1] = good_p.y;
-    cloud_point[2] = good_p.z;
-    imageTest.at<unsigned char>(good_proj_point.x, good_proj_point.y) = 255;
-    }
-   if (!pointcloud.data)
-    {
-    qCritical() << "ERROR, reconstruction failed\n";
-    }
-  cv::resize(imageTest, imageTest, cv::Size(500, 500));
-  cv::imshow("Image line", imageTest);
-  cv::waitKey(0);
-
-  QString name = "pointcloud";
-  filename = QFileDialog::getSaveFileName(this, "Save pointcloud", name + ".ply", "Pointclouds (*.ply)");
-  if (!filename.isEmpty())
-    {
-    std::cout << "Saving the pointcloud" << std::endl;
-    bool binary = false;
-    unsigned ply_flags = io_util::PlyPoints | (binary ? io_util::PlyBinary : 0);
-    bool success = io_util::write_ply(filename.toStdString(), pointcloud, ply_flags);
-    if (success == false)
-      {
-      qCritical() << "ERROR, saving the pointcloud failed\n";
-      return;
-      }
-    }*/
 }
 
 void MainWindow::triangulate_stereo(const cv::Mat & K1, const cv::Mat & kc1, const cv::Mat & K2, const cv::Mat & kc2,
@@ -608,65 +436,6 @@ cv::Point3d MainWindow::approximate_ray_intersection(const cv::Point3d & v1, con
 
 int MainWindow::getCode(cv::Vec3b cam_color)
 {
-  /*if (cam_color[0] < 70)
-  {
-    if (cam_color[1] < 70)
-    {
-      if (cam_color[2] < 70)
-      {
-        // black
-        return 6;
-      }
-      else
-      {
-        // blue
-        return 3;
-      }
-    }
-    else
-    {
-      if (cam_color[2] < 70)
-      {
-        // green
-        return 2;
-      }
-      else
-      {
-        // cyan
-        return 4;
-      }
-    }
-  }
-  else
-  {
-    if (cam_color[1] < 70)
-    {
-      if (cam_color[2] < 70)
-      {
-        // red
-        return 1;
-      }
-      else
-      {
-        // magenta
-        return 5;
-      }
-    }
-    else
-    {
-      if (cam_color[2] < 70)
-      {
-        // yellow
-        return 0;
-      }
-      else
-      {
-        // white point, shouldn't exist
-        std::cerr << "Error in the detected color";
-        return 99;
-      }
-    }
-  }*/
   if (cam_color[0] > 70 && cam_color[1] < 70 && cam_color[2] < 70)
   {
     return 0;
@@ -684,17 +453,4 @@ int MainWindow::getCode(cv::Vec3b cam_color)
     std::cout << "Color not valid : " << cam_color << std::endl;
     return 99;
   }
-}
-
-
-
-cv::Vec2i MainWindow::DecodeCoordinates(cv::Vec2i cam_point, cv::Vec3b cam_color)
-{
-  cv::Vec2i proj_point{ 0,0 };
-  
-  
-
-  
-
-  return proj_point;
 }

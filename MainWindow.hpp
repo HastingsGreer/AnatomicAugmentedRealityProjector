@@ -28,7 +28,6 @@ public:
     const cv::Point3d & v2, const cv::Point3d & q2, double * distance);
   int getCode(cv::Vec3b cam_color);
 
-
 protected slots:
   void on_proj_display_clicked();
   void on_cam_display_clicked();
