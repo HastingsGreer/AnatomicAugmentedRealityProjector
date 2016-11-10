@@ -5,10 +5,23 @@
 
 #include <QWidget>
 
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unordered_map>
 #include <vector>
 
+
+class Vec3bHash
+{
+public:
+  std::size_t operator()(const cv::Vec3b &vec) const
+  {
+    std::size_t s = std::hash<unsigned long>()((vec(0) << 16) | (vec(1)<<8) | (vec(2)));
+    //std::cout << "Hash code : " << s << std::endl;
+    return s;
+  }
+};
 
 class ProjectorWidget : public QWidget
 {
@@ -27,14 +40,16 @@ public:
   int GetHeight() const { return this->Height; };
   int GetLineThickness() const { return this->LineThickness; };
   int GetRow() const { return this->Row; };
-
-  std::vector<int> GetPattern() const { return this->Pattern; };
+  int GetStep() const { return this->Step; };
+  std::unordered_map<cv::Vec3b, int, Vec3bHash> GetPattern() const { return this->Pattern; };
+  
   void SetPixmap(QPixmap image) { this->Pixmap = image; };
   void SetWidth(int x) { this->Width = x; };
   void SetHeight(int y) { this->Height = y; };
   void SetLineThickness(int thickness) { this->LineThickness = thickness; };
   void SetRow(int r) { this->Row = r; };
-  void SetPattern(std::vector<int> pattern) { this->Pattern = pattern; };
+  void SetStep(int step) { this->Step = step; };
+  void SetPattern(std::unordered_map<cv::Vec3b, int, Vec3bHash> pattern) { this->Pattern = pattern; };
 
   void start();
 
@@ -50,7 +65,9 @@ private:
   int Width;
   int LineThickness;
   int Row;
-  std::vector<int> Pattern;
+  int Step;
+  std::unordered_map<cv::Vec3b, int, Vec3bHash> Pattern;
 };
+
 
 #endif  /* __PROJECTOR_HPP__ */

@@ -4,8 +4,6 @@
 #include <QDesktopWidget>
 #include <QPainter>
 
-#include <iostream>
-
 ProjectorWidget::ProjectorWidget(QWidget * parent, Qt::WindowFlags flags) :
   QWidget(parent, flags),
   Height(720),
@@ -34,14 +32,13 @@ cv::Mat ProjectorWidget::CreateLineImage()
 
 cv::Mat ProjectorWidget::CreateLinePattern()
 {
-  std::vector<int> pattern{ 0,1,2,1,2,0,2,0,1,0,2,1,0,1,2 };
-
-  this->SetPattern(pattern);
+  std::vector<unsigned char> pattern{ 0,1,2,1,2,0,2,0,1,0,2,1,0,1,2 };
 
   int size = pattern.size();
   std::cout << "size = " << size << std::endl;
   int step = this->GetWidth() / size;
   std::cout << "step = " << step << std::endl;
+  this->SetStep(step);
   
   cv::Mat im = cv::Mat::zeros(this->Height, this->Width, CV_8UC3);
   /*if (size != this->Width)
@@ -56,14 +53,17 @@ cv::Mat ProjectorWidget::CreateLinePattern()
    
     if (pattern.at(i) == 0)
     {
+      // Blue
       color = { 255,0,0 };
     }
     else if (pattern.at(i) == 1)
     {
+      // Green
       color = { 0,255,0 };
     }
     else if (pattern.at(i) == 2)
     {
+      // Red
       color = { 0,0,255 };
     }
     for (int j = 0; j < this->GetHeight(); j++)
@@ -75,6 +75,37 @@ cv::Mat ProjectorWidget::CreateLinePattern()
       }
     }
   }
+  // The camera is upper-down, so we need to reverse the code displayed
+  //std::reverse(pattern.begin(), pattern.end());
+  // Creation of a map to store the index number of a code
+  std::unordered_map<cv::Vec3b, int, Vec3bHash> map_pattern;
+  
+  for (int i = 0; i < size-2; i++)
+  {
+    //if (i < size - 2) 
+    {
+      map_pattern.emplace(cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)), i*step);
+      std::cout << " i : " << i << " i*step : " << i*step << " " << cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)) << std::endl;
+    }
+    /*else if (i == size - 2)
+    {
+      map_pattern.emplace(cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(0)), i*step);
+    }
+    else if (i == size - 1)
+    {
+      map_pattern.emplace(cv::Vec3b(pattern.at(i), pattern.at(0), pattern.at(1)), i*step);
+    }*/
+    // same code -> won't be saved in the unordered_map
+  }
+  
+  /*std::unordered_map<cv::Vec3b, int, Vec3bHash>::const_iterator it = map_pattern.cbegin(), it_end = map_pattern.cend();
+  int i = 0;
+  for (; it != it_end; ++it)
+  {
+    std::cout << "Element " << i << " : " << it->first << " " << it->second << std::endl;
+    i++;
+  }*/
+  this->SetPattern(map_pattern);
   return im;
 }
 
