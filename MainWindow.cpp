@@ -129,6 +129,7 @@ void MainWindow::on_proj_display_clicked()
     std::cout << "Could not open or find the image" << std::endl;
     return;
     }
+
   //std::vector<cv::Point2i> proj_points = this->Projector.GetCoordLine(mat);
   //std::cout << proj_points << std::endl;
   QPixmap pixmap = QPixmap::fromImage(cvMatToQImage(mat));
@@ -272,7 +273,7 @@ void MainWindow::on_analyze_clicked()
         //std::cout << mat_c.at<cv::Vec3b>(i, j) << std::endl;
         res.at<unsigned char>(i, j) = 255;
         essai.at<cv::Vec3b>(i, j) = mat_c.at<cv::Vec3b>(i, j);
-        cam_points.push_back(cv::Point2i(i, j));
+        cam_points.push_back(cv::Point2i(j, i));      // Need to change it if the imag is up-down
         cam_colors.push_back(mat_HSV.at<cv::Vec3b>(i, j));
       }
     }
@@ -289,7 +290,7 @@ void MainWindow::on_analyze_clicked()
     crt_code = getCode(*it_cam_colors);
     cam_code.push_back(crt_code);
   }
-
+  
   std::vector<unsigned char>::iterator it_ = cam_code.begin();
   for (it_; it_ < cam_code.end(); it_++)
   {
@@ -341,66 +342,6 @@ void MainWindow::on_analyze_clicked()
   }
   // We found the first code
 
-    /*
-    i++;
-    // cam_color : contains the code which will enable us to know the position of the point
-    // need 3 points with the same code to be valid
-    cv::Vec3b code_color = { 99,99,99 };
-    ok = true;
-    crt_code = getCode(*it_cam_colors);
-    if (crt_code == 99)
-    {
-      cam_code.push_back(code_color);
-      continue;
-    }
-    prev_code = crt_code;
-    it_code = it_cam_colors +1;
-    indice = 0;
-    while (indice < 3 && ok==true)
-    {
-      pix3 = 1;
-      while (pix3 < 3 && ok == true)
-      {
-        next_code = getCode(*it_code);
-        if (next_code == prev_code)
-        {
-          pix3++;
-          it_code++;
-        }
-        else
-        {
-          if (prev_code == crt_code)
-          {
-            // invalid pixel
-            //cam_code.push_back(code_color);
-            ok == false;
-          }
-          else
-          {
-            pix3 = 1;
-            prev_code = next_code;
-          }
-        }
-      }
-      // we got 3 pixels with the same code
-      code_color(indice) = prev_code;
-      indice++;
-      it_code++;
-      while (prev_code == getCode(*it_code))
-      {
-        it_code++;
-      }
-      prev_code = getCode(*it_code);
-    }
-    cam_code.push_back(code_color);
-  }
-  std::vector<cv::Vec3b>::iterator it_code_final = cam_code.begin();
-  for (it_code_final; it_code_final < cam_code.end(); it_code_final++)
-  {
-    std::cout << "code : " << *it_code_final << std::endl;
-  }
-
-  */
   //cv::resize(res, res, cv::Size(500, 500));
   //cv::imshow("Image result", res);
   cv::imshow("Selected points", essai);
@@ -420,116 +361,20 @@ void MainWindow::on_analyze_clicked()
   // imageTest is used to control which points have been used on the projector for the reconstruction
   cv::Mat imageTest = cv::Mat::zeros(this->Projector.GetHeight(), this->Projector.GetWidth(), CV_8UC1);
   std::unordered_map<cv::Vec3b, int, Vec3bHash> map_pattern = this->Projector.GetPattern();
-  int test = 1;
   bool ok = false;
-  //std::vector<int> result_code;
-  //result_code.push_back(255);
   int k = 0;
 
   for (it_cam_points; it_cam_points != cam_points.end(); ++it_cam_points, ++it_cam_code)
   {
-    test++;
-    /*
     //*********** Get the code of the current point and of the 2 next points **********
-    pixel_colors = it_cam_colors;
-    int good_points = 0;
-    code_colors = { 99,99,99 };
-    int crt_code = getCode(*it_cam_colors);
-    if (crt_code != *(result_code.end()-1))
-    {
-      result_code.push_back(int(crt_code));
-    }
-    while (crt_code == 99)
-    {
-      it_cam_points++;
-      it_cam_colors++;
-      crt_code = getCode(*it_cam_colors);
-      // security : not the end of the vectors
-    }
-    pix3 = 1;
-    while (pix3 != 3)
-    {
-      pixel_colors++;
-      if (getCode(*pixel_colors) == crt_code)
-      {
-        pix3++;
-      }
-      else
-      {
-        while (crt_code == 99)
-        {
-          it_cam_points++;
-          it_cam_colors++;
-          crt_code = getCode(*it_cam_colors);
-          // security : not the end of the vectors
-        }
-        pix3 = 1;
-      }
-    }
-    code_colors(good_points)=crt_code;
-    good_points++;
-    int next_code;
-    it = it_cam_colors;
-    it++;
-    pixel_colors = it;
-    
-    while ((good_points != 3) && (it!=cam_colors.end()))
-    {
-      next_code = getCode(*it);
-      if (next_code == 99)
-      {
-        std::cerr << "Error in the detected color" << std::endl;
-      }
-      else if (next_code != crt_code)
-      {
-        pix3 = 1;
-        while (pix3 != 3)
-        {
-          pixel_colors++;
-          if (getCode(*pixel_colors) == next_code)
-          {
-            pix3++;
-          }
-          else
-          {
-            while (crt_code == 99)
-            {
-              it_cam_points++;
-              it_cam_colors++;
-              crt_code = getCode(*it_cam_colors);
-              // security : not the end of the vectors
-            }
-            pix3 = 1;
-          }
-        }
-        code_colors(good_points)=next_code;
-        crt_code = next_code;
-        good_points++;
-      }
-      it++;
-    }
-    if (it == cam_colors.end())
-    {
-      // end of the image
-      continue;
-    }
-    if (code_colors(0) == 99 || code_colors(1) == 99 || code_colors(2) == 99)
-    {
-      std::cout << "Error : the current decoded code is wrong." << std::endl;
-    }*/
-
     if (*it_cam_code == code_color(0))
     {
-      //it_next1++;
-      //it_next2++;
       // we keep the same code
     }
     else if (*it_cam_code == code_color(1)) 
     {
       code_color(0) = code_color(1);
       code_color(1) = code_color(2);
-      //it_next1++;
-      //it_next2++;
       while (ok == false)
       {
         pix3 = 1;
@@ -556,10 +401,11 @@ void MainWindow::on_analyze_clicked()
         }
         else if (pix3 > 3)
         {
-          code_color(2) = *it_next1;//////////////////////////////
+          code_color(2) = *it_next1;
           it_next1 = it_next2;
           it_next2++;
           ok = true;
+          //std::cout << "[" << (code_color) << "] ";
         }
         else
         {
@@ -576,14 +422,12 @@ void MainWindow::on_analyze_clicked()
       k++;
       continue;
     }
-    //std::cout << ", " << (code_color);
     /*essai.at<cv::Vec3b>((*it_cam_points).x, (*it_cam_points).y)=(255,255,255);
     if (test % 30 == 0)
     {
       cv::imshow("Selected points", essai);
       cv::waitKey(0);
     }*/
-   
 
     //**************** Scanning the Projector.Pattern to find the same code **************
     // We have the 3 points needed to have the correspondant point of the projector
@@ -596,7 +440,7 @@ void MainWindow::on_analyze_clicked()
     {
       if (map_pattern.find(code_color) == map_pattern.end())
       {
-        std::cout << "This code doesn't exist." << std::endl;
+        std::cout << "This code doesn't exist : " << code_color << std::endl;
         continue; // on repart en haut de la boucle for ?
         k++;
       }
@@ -610,7 +454,7 @@ void MainWindow::on_analyze_clicked()
     //***************** Computing the distance and find the best point in the projector ****************
     for (int j = 0; j < this->Projector.GetStep(); j++)
     {
-      proj = { coord_proj + j, this->Projector.GetRow()};
+      proj = {coord_proj + j, this->Projector.GetRow()};
       triangulate_stereo(this->Calib.Cam_K, this->Calib.Cam_kc, this->Calib.Proj_K, this->Calib.Proj_kc, this->Calib.R.t(), this->Calib.T, *it_cam_points, proj, p, &distance);
       if (distance < distance_min)
       {
@@ -621,11 +465,11 @@ void MainWindow::on_analyze_clicked()
     }
 
     //***************** Saving the point in a point cloud ********************
-    cv::Vec3f & cloud_point = pointcloud.at<cv::Vec3f>(good_proj);
+    cv::Vec3f & cloud_point = pointcloud.at<cv::Vec3f>(good_proj.y, good_proj.x);
     cloud_point[0] = good_p.x;
     cloud_point[1] = good_p.y;
     cloud_point[2] = good_p.z;
-    imageTest.at<unsigned char>(good_proj) = 255;
+    imageTest.at<unsigned char>(good_proj.y, good_proj.x) = 255;
     valid_point++;
   }
   if (!pointcloud.data)
@@ -633,14 +477,8 @@ void MainWindow::on_analyze_clicked()
     qCritical() << "ERROR, reconstruction failed\n";
   }
   std::cout << "valid_point : " << valid_point << std::endl;
-  std::cout << "points skippes : " << k << std::endl;
-  /*std::vector<int>::iterator it_res = result_code.begin();
-  std::cout << "final code : ";
-  for (it_res; it_res < result_code.end(); it_res++)
-  {
-    std::cout << " " << *it_res;
-  }*/
-  std::cout << std::endl;
+  std::cout << "skipped points : " << k << std::endl;
+
   cv::resize(imageTest, imageTest, cv::Size(500, 500));
   cv::imshow("Image line", imageTest);
   cv::waitKey(0);
@@ -735,12 +573,12 @@ int MainWindow::getCode(cv::Vec3b cam_color)
     // Red
     return 2;
   }
-  else if (cam_color[0] > 38 && cam_color[0] <= 75)
+  else if (cam_color[0] > 38 && cam_color[0] <= 95)
   {
     // Green
     return 1;
   }
-  else if (cam_color[0] > 85 && cam_color[0] <= 130)
+  else if (cam_color[0] > 105 && cam_color[0] <= 130)
   {
     // Blue
     return 0;

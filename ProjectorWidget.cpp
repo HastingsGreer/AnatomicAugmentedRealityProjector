@@ -6,7 +6,7 @@
 
 ProjectorWidget::ProjectorWidget(QWidget * parent, Qt::WindowFlags flags) :
   QWidget(parent, flags),
-  Height(720),
+  Height(1080),
   Width(1920),
   LineThickness(1), 
   Row(100)
@@ -32,7 +32,7 @@ cv::Mat ProjectorWidget::CreateLineImage()
 
 cv::Mat ProjectorWidget::CreateLinePattern()
 {
-  std::vector<unsigned char> pattern{ 0,1,2,1,2,0,2,0,1,0,2,1,0,1,2 };
+  std::vector<unsigned char> pattern{ 0,1,2,1,2,0,2,0,1,0 };
 
   int size = pattern.size();
   std::cout << "size = " << size << std::endl;
@@ -47,6 +47,7 @@ cv::Mat ProjectorWidget::CreateLinePattern()
     return im;
   }*/
   int pos = 0;
+  bool reverse = false;
   for (int i = 0; i < size; i++)
   {
     cv::Vec3b color;
@@ -76,7 +77,18 @@ cv::Mat ProjectorWidget::CreateLinePattern()
     }
   }
   // The camera is upper-down, so we need to reverse the code displayed
-  //std::reverse(pattern.begin(), pattern.end());
+  if (reverse == true)
+  {
+    std::reverse(pattern.begin(), pattern.end());
+  }
+  std::vector<unsigned char>::const_iterator it_p = pattern.cbegin(), it_p_end = pattern.cend();
+  std::cout << "Code : ";
+  for (; it_p != it_p_end; ++it_p)
+  {
+    std::cout << int(*it_p) << " ";
+  }
+  std::cout << std::endl;
+
   // Creation of a map to store the index number of a code
   std::unordered_map<cv::Vec3b, int, Vec3bHash> map_pattern;
   
@@ -84,9 +96,18 @@ cv::Mat ProjectorWidget::CreateLinePattern()
   {
     //if (i < size - 2) 
     {
-      map_pattern.emplace(cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)), i*step);
-      std::cout << " i : " << i << " i*step : " << i*step << " " << cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)) << std::endl;
+      if (reverse == true)
+      {
+        map_pattern.emplace(cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)), (size - i - 1)*step);
+        std::cout << " i : " << i << " (size-i-1)*step : " << (size - i - 1)*step << " " << cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)) << std::endl;
+      }
+      else
+      {
+        map_pattern.emplace(cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)), i*step);
+        std::cout << " i : " << i << " i*step : " << i*step << " " << cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)) << std::endl;
+      }
     }
+
     /*else if (i == size - 2)
     {
       map_pattern.emplace(cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(0)), i*step);
