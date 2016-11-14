@@ -92,7 +92,7 @@ cv::Mat ProjectorWidget::CreateLinePattern()
   // Creation of a map to store the index number of a code
   std::unordered_map<cv::Vec3b, int, Vec3bHash> map_pattern;
   
-  for (int i = 0; i < size-2; i++)
+  for (int i = 0; i < size - 2; i++)
   {
     //if (i < size - 2) 
     {
@@ -107,6 +107,18 @@ cv::Mat ProjectorWidget::CreateLinePattern()
         std::cout << " i : " << i << " i*step : " << i*step << " " << cv::Vec3b(pattern.at(i), pattern.at(i + 1), pattern.at(i + 2)) << std::endl;
       }
     }
+  }
+  if (reverse == true)
+  {
+
+  }
+  else
+  {
+    map_pattern.emplace(cv::Vec3b(pattern.at(size - 2), pattern.at(size - 1), 99), (size - 2)*step);
+    map_pattern.emplace(cv::Vec3b(pattern.at(size - 1), 99, 99), (size - 1)*step);
+    std::cout << " i : " << size-2 << " i*step : " << (size-2)*step << " " << cv::Vec3b(pattern.at(size-2), pattern.at(size-1), 99) << std::endl;
+    std::cout << " i : " << size-1 << " i*step : " << (size-1)*step << " " << cv::Vec3b(pattern.at(size-1), 99, 99) << std::endl;
+  }
 
     /*else if (i == size - 2)
     {
@@ -117,7 +129,6 @@ cv::Mat ProjectorWidget::CreateLinePattern()
       map_pattern.emplace(cv::Vec3b(pattern.at(i), pattern.at(0), pattern.at(1)), i*step);
     }*/
     // same code -> won't be saved in the unordered_map
-  }
   
   /*std::unordered_map<cv::Vec3b, int, Vec3bHash>::const_iterator it = map_pattern.cbegin(), it_end = map_pattern.cend();
   int i = 0;

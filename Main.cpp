@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
   window.show();
 
   CalibrationData calib;
-  QString calibrationFile = "../calibration.yml";
+  QString calibrationFile = "../calibration-small-stick.yml";
 
   bool error = calib.LoadCalibration(calibrationFile);
   if (error == false)
