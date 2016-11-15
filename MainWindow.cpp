@@ -26,26 +26,26 @@ MainWindow::MainWindow(QWidget *parent) :
   CamInput()
 {
   ui->setupUi(this);
-  this->setWindowTitle("Camera Projector");
+  this->setWindowTitle( "Camera Projector" );
 
-  connect(ui->proj_height, SIGNAL(valueChanged(int)), this, SLOT(SetProjectorHeight()));
-  connect(ui->proj_width, SIGNAL(valueChanged(int)), this, SLOT(SetProjectorWidth()));
-  connect(ui->proj_thickness, SIGNAL(valueChanged(int)), this, SLOT(SetProjectorLineThickness()));
-  connect(ui->proj_row, SIGNAL(valueChanged(int)), this, SLOT(SetProjectorLineRow()));
-  connect(ui->cam_framerate, SIGNAL(valueChanged(double)), this, SLOT(SetCameraFrameRate()));
-  connect(ui->cam_nbimages, SIGNAL(valueChanged(int)), this, SLOT(SetCameraNbImages()));
+  connect( ui->proj_height, SIGNAL( valueChanged( int )), this, SLOT( SetProjectorHeight() ));
+  connect( ui->proj_width, SIGNAL( valueChanged( int )), this, SLOT( SetProjectorWidth() ));
+  connect( ui->proj_thickness, SIGNAL( valueChanged( int )), this, SLOT( SetProjectorLineThickness() ));
+  connect( ui->proj_row, SIGNAL( valueChanged( int )), this, SLOT( SetProjectorLineRow() ));
+  connect( ui->cam_framerate, SIGNAL( valueChanged(double)), this, SLOT( SetCameraFrameRate() ));
+  connect( ui->cam_nbimages, SIGNAL( valueChanged(int)), this, SLOT(SetCameraNbImages() ));
 
 
   this->SetCameraFrameRate();
 
   // Timer
-  this->timer = new QTimer(this);
-  this->timer->setSingleShot(false);
-  this->timer->setInterval(5);
-  this->connect(timer, SIGNAL(timeout()), SLOT(DisplayCamera()));
+  this->timer = new QTimer( this );
+  this->timer->setSingleShot( false );
+  this->timer->setInterval( 5 );
+  this->connect( timer, SIGNAL( timeout() ), SLOT( DisplayCamera() ));
 
   QString calibrationFile = "C:\\Camera_Projector_Calibration\\CameraProjector\\calibration.yml";
-  this->Calib.LoadCalibration(calibrationFile);
+  this->Calib.LoadCalibration( calibrationFile );
   this->Calib.Display();
 }
 
@@ -54,34 +54,34 @@ MainWindow::~MainWindow()
   delete ui;
 }
 
-inline QImage cvMatToQImage(const cv::Mat &mat)
+inline QImage cvMatToQImage( const cv::Mat &mat )
 {
-  switch (mat.type())
+  switch ( mat.type() )
   {
     // 8-bit, 3 channel
   case CV_8UC3:
-  {
-    QImage image(mat.data, mat.cols, mat.rows, static_cast<int>(mat.step), QImage::Format_RGB888);
+    {
+    QImage image( mat.data, mat.cols, mat.rows, static_cast<int>( mat.step ), QImage::Format_RGB888 );
     return image.rgbSwapped();
-  }
+    }
   // 8-bit, 1 channel
   case CV_8UC1:
-  {
-    // creating a color table only the first time
-    static QVector<QRgb> sColorTable;
-
-    if (sColorTable.isEmpty())
     {
-      for (int i = 0; i < 256; i++)
+    // creating a color table only the first time
+    static QVector< QRgb > sColorTable;
+
+    if ( sColorTable.isEmpty() )
       {
-        sColorTable.append(qRgb(i, i, i));
+      for (int i = 0; i < 256; i++)
+        {
+        sColorTable.append( qRgb(i, i, i) );
         //NOTE : /!\ takes time
+        }
       }
-    }
-    QImage image(mat.data, mat.cols, mat.rows, static_cast<int>(mat.step), QImage::Format_Indexed8);
-    image.setColorTable(sColorTable);
+    QImage image( mat.data, mat.cols, mat.rows, static_cast< int >( mat.step ), QImage::Format_Indexed8 );
+    image.setColorTable( sColorTable );
     return image;
-  }
+    }
   default:
     qWarning() << "Type not handled : " << mat.type();
     break;
@@ -90,28 +90,28 @@ inline QImage cvMatToQImage(const cv::Mat &mat)
 }
 
 // Note : If we know that the lifetime of the cv::Mat is shorter than the QImage, then pass false for the inCloneImageData argument. This will share the QImage data.
-inline cv::Mat QImageToCvMat(const QImage& image, bool inCloneImageData = true)
+inline cv::Mat QImageToCvMat( const QImage& image, bool inCloneImageData = true )
 {
-  switch (image.format())
+  switch ( image.format() )
   {
   case QImage::Format_Indexed8:
-  {
-    //8-bit, 1 channel
-    cv::Mat mat(image.height(), image.width(), CV_8UC1, const_cast<uchar*>(image.bits()), static_cast<size_t>(image.bytesPerLine()));
-    return (inCloneImageData ? mat.clone() : mat);
-  }
-  case QImage::Format_RGB888:
-  {
-    if (!inCloneImageData)
     {
-      qWarning() << "ASM::QImageToCvMat() - Conversion requires cloning because we use a temporary QImage";
+    //8-bit, 1 channel
+    cv::Mat mat( image.height(), image.width(), CV_8UC1, const_cast< uchar* >( image.bits() ), static_cast< size_t >( image.bytesPerLine() ));
+    return ( inCloneImageData ? mat.clone() : mat );
     }
+  case QImage::Format_RGB888:
+    {
+    if ( !inCloneImageData )
+      {
+      qWarning() << "ASM::QImageToCvMat() - Conversion requires cloning because we use a temporary QImage";
+      }
 
     QImage   swapped;
     swapped = image.rgbSwapped();
 
-    return cv::Mat(swapped.height(), swapped.width(), CV_8UC3, const_cast<uchar*>(swapped.bits()), static_cast<size_t>(swapped.bytesPerLine())).clone();
-  }
+    return cv::Mat( swapped.height(), swapped.width(), CV_8UC3, const_cast< uchar* >( swapped.bits() ), static_cast< size_t >( swapped.bytesPerLine())).clone();
+    }
   default:
     qWarning() << "Type not handled : " << image.format();
     break;
@@ -124,95 +124,89 @@ void MainWindow::on_proj_display_clicked()
   //cv::Mat mat = this->Projector.CreateLineImage();
   cv::Mat mat = this->Projector.CreateLinePattern();
 
-  if (!mat.data)
-  {
+  if ( !mat.data )
+    {
     std::cout << "Could not open or find the image" << std::endl;
     return;
-  }
+    }
 
   //std::vector<cv::Point2i> proj_points = this->Projector.GetCoordLine(mat);
-  //std::cout << proj_points << std::endl;
-  QPixmap pixmap = QPixmap::fromImage(cvMatToQImage(mat));
-  this->Projector.SetPixmap(pixmap);
-  /*QGraphicsScene *Scene = new QGraphicsScene(this);
-  Scene->addPixmap(pixmap);
-  Scene->setSceneRect(0, 0, pixmap.width(), pixmap.height());
-  ui->proj_image->fitInView(Scene->sceneRect(), Qt::KeepAspectRatio);
-  ui->proj_image->setScene(Scene);*/
+  QPixmap pixmap = QPixmap::fromImage( cvMatToQImage( mat ));
+  this->Projector.SetPixmap( pixmap );
 
-  connect(&(this->Projector), SIGNAL(new_image(QPixmap)), this, SLOT(_on_new_projector_image(QPixmap)));
+  connect( &( this->Projector ), SIGNAL( new_image( QPixmap )), this, SLOT( _on_new_projector_image( QPixmap )));
 
-  //this->Projector.start();
+  this->Projector.start();
 
   //disconnect projector display signal
-  disconnect(&(this->Projector), SIGNAL(new_image(QPixmap)), this, SLOT(_on_new_projector_image(QPixmap)));
+  disconnect( &( this->Projector ), SIGNAL( new_image( QPixmap )), this, SLOT( _on_new_projector_image( QPixmap )));
 }
 
 void MainWindow::DisplayCamera()
 {
-  QGraphicsScene *scene = new QGraphicsScene(this);
-  ui->cam_image->setScene(scene);
+  QGraphicsScene *scene = new QGraphicsScene( this );
+  ui->cam_image->setScene( scene );
   cv::Mat mat = this->CamInput.DisplayImages();
-  QPixmap PixMap = QPixmap::fromImage(cvMatToQImage(mat));
+  QPixmap PixMap = QPixmap::fromImage( cvMatToQImage( mat ));
   scene->clear();
-  ui->cam_image->scene()->addItem(new QGraphicsPixmapItem(PixMap));
-  scene->setSceneRect(0, 0, PixMap.width(), PixMap.height());
-  ui->cam_image->fitInView(scene->sceneRect(), Qt::KeepAspectRatio);
+  ui->cam_image->scene()->addItem( new QGraphicsPixmapItem( PixMap ));
+  scene->setSceneRect( 0, 0, PixMap.width(), PixMap.height());
+  ui->cam_image->fitInView( scene->sceneRect(), Qt::KeepAspectRatio );
 
-  cv::waitKey(1);
-
-  /*error = CamInput.Camera.StopCapture();
-  if (error != FlyCapture2::PGRERROR_OK)
-  {
-  // This may fail when the camera was removed, so don't show
-  // an error message
-  }*/
+  cv::waitKey( 1 );
 }
 
 void MainWindow::on_cam_display_clicked()
 {
-  CamInput.Run();
-  this->timer->start();
+  bool success = CamInput.Run();
+  if( success == true )
+    {
+    this->timer->start();
+    }
 }
 
 void MainWindow::on_cam_record_clicked()
 {
-  this->CamInput.RecordImages();
+  bool success = this->CamInput.RecordImages();
+  if( success == false )
+    {
+    std::cout << "Error : No image recorded." << std::endl;
+    }
 }
 
 void MainWindow::SetProjectorHeight()
 {
-  this->Projector.SetHeight(ui->proj_height->value());
+  this->Projector.SetHeight( ui->proj_height->value() );
 }
 
 void MainWindow::SetProjectorWidth()
 {
-  this->Projector.SetWidth(ui->proj_width->value());
+  this->Projector.SetWidth( ui->proj_width->value() );
 }
 
 void MainWindow::SetProjectorLineThickness()
 {
-  this->Projector.SetLineThickness(ui->proj_thickness->value());
+  this->Projector.SetLineThickness( ui->proj_thickness->value() );
 }
 
 void MainWindow::SetProjectorLineRow()
 {
-  this->Projector.SetRow(ui->proj_row->value());
+  this->Projector.SetRow( ui->proj_row->value() );
 }
 
 void MainWindow::SetCameraFrameRate()
 {
-  CamInput.SetCameraFrameRate(ui->cam_framerate->value());
+  CamInput.SetCameraFrameRate( ui->cam_framerate->value() );
 }
 
 void MainWindow::SetCameraNbImages()
 {
-  CamInput.SetNbImages(ui->cam_nbimages->value());
+  CamInput.SetNbImages( ui->cam_nbimages->value() );
 }
 
 void MainWindow::_on_new_projector_image(QPixmap pixmap)
 {
-  this->Projector.SetPixmap(pixmap);
+  this->Projector.SetPixmap( pixmap );
 }
 
 void MainWindow::on_analyze_clicked()
@@ -220,229 +214,245 @@ void MainWindow::on_analyze_clicked()
   /***************** Selecting the image and preprocessing to get rid of noise ********************/
   char* dir = "Results\\";
   QString filename = QFileDialog::getOpenFileName(this, "Open decoded files", dir);
-  if (filename.isEmpty())
-  {
+  if ( filename.isEmpty() )
+    {
     return;
-  }
-  cv::Mat mat_color = cv::imread(qPrintable(filename), CV_LOAD_IMAGE_COLOR);
+    }
+  cv::Mat mat_color = cv::imread( qPrintable( filename ), CV_LOAD_IMAGE_COLOR );
 
-  filename = QFileDialog::getOpenFileName(this, "Open decoded files", dir);
-  if (filename.isEmpty())
-  {
+  filename = QFileDialog::getOpenFileName( this, "Open decoded files", dir );
+  if ( filename.isEmpty() )
+    {
     return;
-  }
-  cv::Mat mat_color_ref = cv::imread(qPrintable(filename), CV_LOAD_IMAGE_COLOR);
+    }
+  cv::Mat mat_color_ref = cv::imread( qPrintable( filename ), CV_LOAD_IMAGE_COLOR );
 
   // Substract 2 images to keep only the line illuminated by the projector
-  cv::Mat mat_c = abs(mat_color - mat_color_ref);
-  if (!mat_c.data || mat_c.type() != CV_8UC3)
-  {
+  cv::Mat mat_c = abs( mat_color - mat_color_ref );
+  if ( !mat_c.data || mat_c.type() != CV_8UC3 )
+    {
     qCritical() << "ERROR invalid cv::Mat data\n";
     return;
-  }
-  // TODO : check if the calib file is valid
+    }
 
   //morphological opening (remove small objects from the foreground)
-  cv::erode(mat_c, mat_c, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
-  dilate(mat_c, mat_c, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
+  cv::erode( mat_c, mat_c, cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( 5, 5 )));
+  dilate( mat_c, mat_c, cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( 5, 5 )));
 
-  //cv::imshow("Original", mat_c); //show the image after the morphological opening
-  //cv::waitKey(0); 
+  //cv::imshow( "Original", mat_c ); //show the image after the morphological opening
+  //cv::waitKey( 0 );
 
   //Convert the captured frame from BGR to HSV
   cv::Mat mat_HSV;
-  cv::cvtColor(mat_c, mat_HSV, cv::COLOR_BGR2HSV);
+  cv::cvtColor( mat_c, mat_HSV, cv::COLOR_BGR2HSV );
 
   // Selecting and saving only the points not black
-  std::vector<cv::Point2d> cam_points;
-  std::vector<cv::Vec3b> cam_colors;
-  cv::Mat essai = cv::Mat::zeros(mat_c.rows, mat_c.cols, CV_8UC3);
-  for (int j = 0; j < mat_HSV.cols; j++)
-  {
-    for (int i = 0; i < mat_HSV.rows; i++)
+  std::vector< cv::Point2d > cam_points;
+  std::vector< cv::Vec3b > cam_colors;
+  cv::Mat essai = cv::Mat::zeros( mat_c.rows, mat_c.cols, CV_8UC3 );
+  for ( int j = 0; j < mat_HSV.cols; j++ )
     {
-      if (mat_HSV.at<cv::Vec3b>(i, j).val[2] > 90)
+    for ( int i = 0; i < mat_HSV.rows; i++ )
       {
-        essai.at<cv::Vec3b>(i, j) = mat_c.at<cv::Vec3b>(i, j);
-        cam_points.push_back(cv::Point2d(j, i)); // Need to change it if the image is up-down
-        cam_colors.push_back(mat_HSV.at<cv::Vec3b>(i, j));
+      if ( mat_HSV.at< cv::Vec3b >( i, j ).val[2] > 90 )
+        {
+        essai.at< cv::Vec3b >( i, j ) = mat_c.at< cv::Vec3b >( i, j );
+        cam_points.push_back( cv::Point2d( j, i )); // Need to change it if the image is up-down
+        cam_colors.push_back( mat_HSV.at< cv::Vec3b >( i, j ));
+        }
       }
     }
-  }
-  cv::imshow("Selected points", essai);
-  cv::waitKey(0);
+  cv::imshow( "Selected points", essai );
+  cv::waitKey( 0 );
+
+  /*
+  cv::Mat verif = cv::Mat::zeros( mat_c.rows, mat_c.cols, CV_8UC1 );
+  filename = QFileDialog::getSaveFileName( this, "Save the black image", dir );
+  cv::imwrite( qPrintable( filename ), verif );
+  std::vector< cv::Point2d >::iterator it;
+  for ( it = cam_points.begin(); it < cam_points.end(); ++it )
+    {
+    verif.at< unsigned char >( it->y, it->x ) = 255;
+    }
+  filename = QFileDialog::getSaveFileName( this, "Save the white line", dir );
+  cv::imwrite( qPrintable( filename ), verif );
+  cv::imshow( "cam_points", verif );
+  cv::waitKey( 0 );
+  */
 
   // Decoding the value of these points
-  std::vector<unsigned char> cam_code;
-  std::vector<cv::Vec3b>::iterator it_cam_colors = cam_colors.begin();
+  std::vector< unsigned char > cam_code;
+  std::vector< cv::Vec3b >::iterator it_cam_colors = cam_colors.begin();
   int crt_code;
   for (it_cam_colors; it_cam_colors < cam_colors.end(); it_cam_colors++)
-  {
-    crt_code = getCode(*it_cam_colors);
-    cam_code.push_back(crt_code);
-  }
+    {
+    crt_code = getCode( *it_cam_colors );
+    cam_code.push_back( crt_code );
+    }
   /*
-  std::vector<unsigned char>::iterator it_ = cam_code.begin();
-  for (it_; it_ < cam_code.end(); it_++)
+  std::vector< unsigned char >::iterator it_ = cam_code.begin();
+  for ( it_; it_ < cam_code.end(); it_++ )
   {
-    std::cout << int(*it_) << " ";
+    std::cout << int( *it_ ) << " ";
   }
   std::cout << std::endl;
   */
 
   // Find the first code (3 first different colors)
-  std::vector<unsigned char>::iterator it_next1=cam_code.begin(), it_next2=cam_code.begin();
+  std::vector< unsigned char >::iterator it_next1=cam_code.begin(), it_next2=cam_code.begin();
   int indice = 0, pix3=1;
   cv::Vec3b code_color = { 99,99,99 };
-  while (*it_next1 == 99)
-  {
+  while ( *it_next1 == 99 )
+    {
     // invalid
     it_next1++;
-  }
+    }
   it_next2 = it_next1++;
-  while (indice < 3)
-  {
-    pix3 = 1;
-    if (indice > 0)
+  while ( indice < 3 )
     {
-      while (*it_next1 == code_color(indice - 1) || *it_next1 == 99)
+    pix3 = 1;
+    if ( indice > 0 )
       {
+      while ( *it_next1 == code_color( indice - 1 ) || *it_next1 == 99 )
+        {
         it_next1++;
         it_next2++;
+        }
       }
-    }
-    while (*it_next2 == *it_next1)
-    {
+    while ( *it_next2 == *it_next1 )
+      {
       pix3++;
       it_next2++;
-    }
-    if (pix3 > 3)
-    {
-      code_color(indice) = *it_next1; 
+      }
+    if ( pix3 > 3 )
+      {
+      code_color( indice ) = *it_next1;
       it_next1 = it_next2;
       it_next2++;
       indice++;
-    }
+      }
     else
-    {
+      {
       // *it_next2 != *it_next1 => one color has not enough pixels => not valid, we go through another color
       it_next1 = it_next2;
       it_next2++;
+      }
     }
-  }
   // We found the first code
 
-  cv::Mat pointcloud = cv::Mat(this->Projector.GetHeight(), this->Projector.GetWidth(), CV_32FC3);
-  std::unordered_map<cv::Vec3b, int, Vec3bHash> map_pattern = this->Projector.GetPattern();
+  cv::Mat pointcloud = cv::Mat( this->Projector.GetHeight(), this->Projector.GetWidth(), CV_32FC3 );
+  std::unordered_map< cv::Vec3b, int, Vec3bHash > map_pattern = this->Projector.GetPattern();
 
-  std::vector<cv::Point2d>::iterator it_cam_points = cam_points.begin();
-  std::vector<unsigned char>::iterator it_cam_code = cam_code.begin();
+  std::vector< cv::Point2d >::iterator it_cam_points = cam_points.begin();
+  std::vector< unsigned char >::iterator it_cam_code = cam_code.begin();
   cv::Point3d p, good_p = { 0,0,0 };
   cv::Point2d proj, good_proj;  
-  double distance =9999, distance_min = 9999, coord_proj;
+  double distance = 9999, distance_min = 9999, coord_proj;
   int nb_points = 0, skip_points = 0, valid_points = 0, same_color = 0;
   bool ok = false;
   bool correct = false;
 
   // imageTest is used to control which points have been used on the projector for the reconstruction
-  cv::Mat imageTest = cv::Mat::zeros(this->Projector.GetHeight(), this->Projector.GetWidth(), CV_8UC1);
+  //cv::Mat imageTest = cv::Mat::zeros( this->Projector.GetHeight(), this->Projector.GetWidth(), CV_8UC1 );
   std::cout << std::endl;
-  for (it_cam_points; it_cam_points != cam_points.end(); ++it_cam_points, ++it_cam_code)
-  {
+  for ( it_cam_points; it_cam_points != cam_points.end(); ++it_cam_points, ++it_cam_code )
+    {
     nb_points++;
     //*********** Get the code of the current point and of the 2 next points **********
-    if (*it_cam_code == code_color(0) || *it_cam_code == 99)
-    {
+    if ( *it_cam_code == code_color(0) || *it_cam_code == 99 )
+      {
       // we keep the same code
-    }
-    else if (*it_cam_code == code_color(1))
-    {
-      same_color = 0;
-      for (int l = 0; l <= 5; l++)
-      {
-        int a = *(it_cam_code + l);
-        if (a == *it_cam_code)
-          same_color++;
       }
-      if (same_color > 3) // Not a single lost point : we go through another color, so we change the code 
+    else if ( *it_cam_code == code_color( 1 ) )
       {
-        code_color(0) = code_color(1);
-        code_color(1) = code_color(2);
-        while (ok == false) // We determine the next color 
+      same_color = 0;
+      for ( int l = 0; l <= 5; l++ )
         {
-          pix3 = 1;
-          while ((*it_next1 == code_color(1) || *it_next1 == 99) && (it_next2 < cam_code.end()))
+        int a = *( it_cam_code + l );
+        if ( a == *it_cam_code )
+          same_color++;
+        }
+      if ( same_color > 3 ) // Not a single lost point : we go through another color, so we change the code
+        {
+        code_color( 0 ) = code_color( 1 );
+        code_color( 1 ) = code_color( 2 );
+        while ( ok == false ) // We determine the next color
           {
+          pix3 = 1;
+          while (( *it_next1 == code_color( 1 ) || *it_next1 == 99 ) && ( it_next2 < cam_code.end() ))
+            {
             it_next1++;
             it_next2++;
-          }
-          while (it_next2 < cam_code.end() && *it_next2 == *it_next1)
-          {
+            }
+          while ( it_next2 < cam_code.end() && *it_next2 == *it_next1 )
+            {
             it_next2++;
             pix3++;
-          }
-          if (pix3 > 3)
-          {
-            code_color(2) = *it_next1;
-            if (it_next2 < cam_code.end())
+            }
+          if ( pix3 > 3 )
             {
+            code_color( 2 ) = *it_next1;
+            if ( it_next2 < cam_code.end() )
+              {
               it_next1 = it_next2;
               it_next2++;
+              }
+            ok = true;
             }
-            ok = true;
-          }
-          else if (it_next2 == cam_code.end())
-          {
+          else if ( it_next2 == cam_code.end() )
+            {
             //end of the line
-            code_color(2) = 99;
+            code_color( 2 ) = 99;
             ok = true;
-          }
+            }
           else
-          {
+            {
             // *it_next2 != *it_next1 => one color has not enough pixels => not valid, we go through another color
             it_next1 = it_next2;
             it_next2++;
+            }
           }
-        }
         ok = false;
-      }
+        }
       else // 1 isolated point
         continue;
-    }
+      }
     else
-    {
+      {
       // pixel invalid : we skip it (worng color, isolated point)
       //std::cout << "Point " << nb_points << " invalid - value : " << int(*it_cam_code) << " " << std::endl;
       skip_points++;
       continue;
-    }
+      }
 
     //**************** Scanning the Projector.Pattern to find the same code **************
     // We have the 3 points needed to have the correspondant point of the projector
-    if (map_pattern.find(code_color) == map_pattern.end())
-    {
+    if ( map_pattern.find( code_color ) == map_pattern.end() )
+      {
       std::cout << "This code doesn't exist : " << code_color << std::endl;
       skip_points++;
       continue;
-    }
+      }
     else
-    {
+      {
       coord_proj = map_pattern[code_color];
       correct = true;
-    }
-
+      }
+    
     //***************** Computing the distance and find the best point in the projector ****************
-    for (int j = 0; j < this->Projector.GetStep(); j++)
-    {
-      proj = { coord_proj + j, double(this->Projector.GetRow()) };
-      triangulate_stereo(this->Calib.Cam_K, this->Calib.Cam_kc, this->Calib.Proj_K, this->Calib.Proj_kc, this->Calib.R.t(), this->Calib.T, *it_cam_points, proj, p, &distance);
-      if (distance < distance_min)
+    for ( int j = 0; j < this->Projector.GetStep(); j++ )
+    //for ( int j = 0; j < this->Projector.GetWidth(); j++ )
       {
+      proj = { coord_proj + j, double( this->Projector.GetRow() ) };
+      //proj = { double( j ), double( this->Projector.GetRow() ) };
+      triangulate_stereo(this->Calib.Cam_K, this->Calib.Cam_kc, this->Calib.Proj_K, this->Calib.Proj_kc, this->Calib.R.t(), this->Calib.T, *it_cam_points, proj, p, &distance);
+      if ( distance < distance_min )
+        {
         distance_min = distance;
         good_p = p;
         good_proj = proj;
+        }
       }
-    }
 
     //***************** Saving the point in a point cloud ********************
     cv::Vec3f & cloud_point = pointcloud.at<cv::Vec3f>(good_proj.y, good_proj.x);
@@ -451,12 +461,12 @@ void MainWindow::on_analyze_clicked()
     cloud_point[2] = good_p.z;
     //imageTest.at<unsigned char>(good_proj.y, good_proj.x) = 255;
     valid_points++;
-  }
+    }
 
-  if (!pointcloud.data)
-  {
+  if ( !pointcloud.data )
+    {
     qCritical() << "ERROR, reconstruction failed\n";
-  }
+    }
   std::cout << "Number of valid points : " << valid_points << std::endl;
   std::cout << "Number of skipped points : " << skip_points << std::endl;
 
@@ -467,108 +477,108 @@ void MainWindow::on_analyze_clicked()
 
   //**************** Saving the point cloud ********************
   QString name = "pointcloud";
-  filename = QFileDialog::getSaveFileName(this, "Save pointcloud", name + ".ply", "Pointclouds (*.ply)");
-  if (!filename.isEmpty())
-  {
+  filename = QFileDialog::getSaveFileName( this, "Save pointcloud", name + ".ply", "Pointclouds (*.ply)" );
+  if ( !filename.isEmpty() )
+    {
     std::cout << "Saving the pointcloud" << std::endl;
     bool binary = false;
-    unsigned ply_flags = io_util::PlyPoints | (binary ? io_util::PlyBinary : 0);
-    bool success = io_util::write_ply(filename.toStdString(), pointcloud, ply_flags);
-    if (success == false)
-    {
+    unsigned ply_flags = io_util::PlyPoints | ( binary ? io_util::PlyBinary : 0 );
+    bool success = io_util::write_ply( filename.toStdString(), pointcloud, ply_flags );
+    if ( success == false )
+      {
       qCritical() << "ERROR, saving the pointcloud failed\n";
       return;
+      }
     }
-  }
 }
 
 
-  void MainWindow::triangulate_stereo(const cv::Mat & K1, const cv::Mat & kc1, const cv::Mat & K2, const cv::Mat & kc2,
-    const cv::Mat & Rt, const cv::Mat & T, const cv::Point2i & p1, const cv::Point2i & p2,
-    cv::Point3d & p3d, double * distance)
-  {
-    //to image camera coordinates
-    cv::Mat inp1(1, 1, CV_64FC2), inp2(1, 1, CV_64FC2);
-    inp1.at<cv::Vec2d>(0, 0) = cv::Vec2d(p1.x, p1.y);
-    inp2.at<cv::Vec2d>(0, 0) = cv::Vec2d(p2.x, p2.y);
-    cv::Mat outp1, outp2;
-    cv::undistortPoints(inp1, outp1, K1, kc1);
-    cv::undistortPoints(inp2, outp2, K2, kc2);
-    assert(outp1.type() == CV_64FC2 && outp1.rows == 1 && outp1.cols == 1);
-    assert(outp2.type() == CV_64FC2 && outp2.rows == 1 && outp2.cols == 1);
-    const cv::Vec2d & outvec1 = outp1.at<cv::Vec2d>(0, 0);
-    const cv::Vec2d & outvec2 = outp2.at<cv::Vec2d>(0, 0);
-    cv::Point3d u1(outvec1[0], outvec1[1], 1.0);
-    cv::Point3d u2(outvec2[0], outvec2[1], 1.0);
+void MainWindow::triangulate_stereo( const cv::Mat & K1, const cv::Mat & kc1, const cv::Mat & K2, const cv::Mat & kc2,
+  const cv::Mat & Rt, const cv::Mat & T, const cv::Point2i & p1, const cv::Point2i & p2,
+  cv::Point3d & p3d, double * distance )
+{
+  //to image camera coordinates
+  cv::Mat inp1( 1, 1, CV_64FC2 ), inp2( 1, 1, CV_64FC2 );
+  inp1.at< cv::Vec2d >( 0, 0 ) = cv::Vec2d( p1.x, p1.y );
+  inp2.at< cv::Vec2d >( 0, 0 ) = cv::Vec2d( p2.x, p2.y );
+  cv::Mat outp1, outp2;
+  cv::undistortPoints( inp1, outp1, K1, kc1 );
+  cv::undistortPoints( inp2, outp2, K2, kc2 );
+  assert( outp1.type() == CV_64FC2 && outp1.rows == 1 && outp1.cols == 1 );
+  assert( outp2.type() == CV_64FC2 && outp2.rows == 1 && outp2.cols == 1 );
+  const cv::Vec2d & outvec1 = outp1.at< cv::Vec2d >( 0, 0 );
+  const cv::Vec2d & outvec2 = outp2.at< cv::Vec2d >( 0, 0 );
+  cv::Point3d u1( outvec1[0], outvec1[1], 1.0 );
+  cv::Point3d u2( outvec2[0], outvec2[1], 1.0 );
 
-    //to world coordinates
-    cv::Point3d w1 = u1;
-    cv::Point3d w2 = cv::Point3d(cv::Mat(Rt*(cv::Mat(u2) - T)));
+  //to world coordinates
+  cv::Point3d w1 = u1;
+  cv::Point3d w2 = cv::Point3d( cv::Mat( Rt*( cv::Mat( u2 ) - T )));
 
-    //world rays
-    cv::Point3d v1 = w1;
-    cv::Point3d v2 = cv::Point3d(cv::Mat(Rt*cv::Mat(u2)));
+  //world rays
+  cv::Point3d v1 = w1;
+  cv::Point3d v2 = cv::Point3d( cv::Mat( Rt*cv::Mat( u2 )));
 
-    //compute ray-ray approximate intersection
-    p3d = approximate_ray_intersection(v1, w1, v2, w2, distance);
-  }
+  //compute ray-ray approximate intersection
+  p3d = approximate_ray_intersection( v1, w1, v2, w2, distance );
+}
 
-  cv::Point3d MainWindow::approximate_ray_intersection(const cv::Point3d & v1, const cv::Point3d & q1,
-    const cv::Point3d & v2, const cv::Point3d & q2, double * distance)
-  {
-    cv::Mat v1mat = cv::Mat(v1);
-    cv::Mat v2mat = cv::Mat(v2);
+cv::Point3d MainWindow::approximate_ray_intersection( const cv::Point3d & v1, const cv::Point3d & q1,
+  const cv::Point3d & v2, const cv::Point3d & q2, double * distance )
+{
+  cv::Mat v1mat = cv::Mat( v1 );
+  cv::Mat v2mat = cv::Mat( v2 );
 
-    double v1tv1 = cv::Mat(v1mat.t()*v1mat).at<double>(0, 0);
-    double v2tv2 = cv::Mat(v2mat.t()*v2mat).at<double>(0, 0);
-    double v1tv2 = cv::Mat(v1mat.t()*v2mat).at<double>(0, 0);
-    double v2tv1 = cv::Mat(v2mat.t()*v1mat).at<double>(0, 0);
+  double v1tv1 = cv::Mat( v1mat.t()*v1mat ).at< double >( 0, 0 );
+  double v2tv2 = cv::Mat( v2mat.t()*v2mat ).at< double >( 0, 0 );
+  double v1tv2 = cv::Mat( v1mat.t()*v2mat ).at< double >( 0, 0 );
+  double v2tv1 = cv::Mat( v2mat.t()*v1mat ).at< double >( 0, 0 );
 
-    cv::Mat Vinv(2, 2, CV_64FC1);
-    double detV = v1tv1*v2tv2 - v1tv2*v2tv1;
-    Vinv.at<double>(0, 0) = v2tv2 / detV;  Vinv.at<double>(0, 1) = v1tv2 / detV;
-    Vinv.at<double>(1, 0) = v2tv1 / detV; Vinv.at<double>(1, 1) = v1tv1 / detV;
+  cv::Mat Vinv( 2, 2, CV_64FC1 );
+  double detV = v1tv1*v2tv2 - v1tv2*v2tv1;
+  Vinv.at< double >( 0, 0 ) = v2tv2 / detV;  Vinv.at< double >( 0, 1 ) = v1tv2 / detV;
+  Vinv.at< double >( 1, 0 ) = v2tv1 / detV; Vinv.at< double >( 1, 1 ) = v1tv1 / detV;
 
-    cv::Point3d q2_q1 = q2 - q1;
-    double Q1 = v1.x*q2_q1.x + v1.y*q2_q1.y + v1.z*q2_q1.z;
-    double Q2 = -(v2.x*q2_q1.x + v2.y*q2_q1.y + v2.z*q2_q1.z);
+  cv::Point3d q2_q1 = q2 - q1;
+  double Q1 = v1.x*q2_q1.x + v1.y*q2_q1.y + v1.z*q2_q1.z;
+  double Q2 = -( v2.x*q2_q1.x + v2.y*q2_q1.y + v2.z*q2_q1.z );
 
-    double lambda1 = (v2tv2 * Q1 + v1tv2 * Q2) / detV;
-    double lambda2 = (v2tv1 * Q1 + v1tv1 * Q2) / detV;
+  double lambda1 = ( v2tv2 * Q1 + v1tv2 * Q2 ) / detV;
+  double lambda2 = ( v2tv1 * Q1 + v1tv1 * Q2 ) / detV;
 
-    cv::Point3d p1 = lambda1*v1 + q1; //ray1
-    cv::Point3d p2 = lambda2*v2 + q2; //ray2
+  cv::Point3d p1 = lambda1*v1 + q1; //ray1
+  cv::Point3d p2 = lambda2*v2 + q2; //ray2
 
-    cv::Point3d p = 0.5*(p1 + p2);
+  cv::Point3d p = 0.5*( p1 + p2 );
 
-    if (distance != NULL)
+  if ( distance != NULL )
     {
-      *distance = cv::norm(p2 - p1);
+    *distance = cv::norm( p2 - p1 );
     }
-    return p;
-  }
+  return p;
+}
 
-  int MainWindow::getCode(cv::Vec3b cam_color)
-  {
-    // HSV
-    if ((cam_color[0] >= 0 && cam_color[0] <= 15) || (cam_color[0] > 140 && cam_color[0] <= 179))
+int MainWindow::getCode( cv::Vec3b cam_color )
+{
+  // HSV
+  if (( cam_color[0] >= 0 && cam_color[0] <= 15 ) || ( cam_color[0] > 140 && cam_color[0] <= 179 ))
     {
-      // Red
-      return 2;
+    // Red
+    return 2;
     }
-    else if (cam_color[0] > 38 && cam_color[0] <= 95)
+  else if ( cam_color[0] > 38 && cam_color[0] <= 95 )
     {
-      // Green
-      return 1;
+    // Green
+    return 1;
     }
-    else if (cam_color[0] > 105 && cam_color[0] <= 130)
+  else if ( cam_color[0] > 105 && cam_color[0] <= 130 )
     {
-      // Blue
-      return 0;
+    // Blue
+    return 0;
     }
-    else
+  else
     {
-      //std::cout << "Color not valid : " << cam_color << std::endl;
-      return 99;
+    //std::cout << "Color not valid : " << cam_color << std::endl;
+    return 99;
     }
-  }
+}

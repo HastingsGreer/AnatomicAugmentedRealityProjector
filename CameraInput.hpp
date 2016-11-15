@@ -7,27 +7,23 @@
 
 class CameraInput
 {
-public :
+public:
   CameraInput();
   ~CameraInput();
 
-  void Run();
-  void SetCameraFrameRate(double framerate);
+  bool Run();
+  void SetCameraFrameRate( double framerate );
   double GetCameraFrameRate();
-  
-  //void SetFrameRate(double frameRate) { this->FrameRate = frameRate; };
-  void SetNbImages(int nbImages) { this->NbImages = nbImages; };
-  //double GetFrameRate() const { return this->FrameRate; };
+
+  void SetNbImages( int nbImages ) { this->NbImages = nbImages; };
   int GetNbImages() const { return this->NbImages; };
 
-  void RecordImages();
+  bool RecordImages();
   cv::Mat DisplayImages();
-
 
   FlyCapture2::Camera Camera;
 
-private :
-  //double FrameRate;
+private:
   int NbImages;
-  
+
 };

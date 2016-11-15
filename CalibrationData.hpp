@@ -15,19 +15,19 @@ public:
   CalibrationData();
   ~CalibrationData();
 
-  void Clear(void);
+  void Clear( void );
 
-  bool IsValid(void) const;
+  bool IsValid( void ) const;
 
-  bool LoadCalibration(QString const& filename);
-  bool SaveCalibration(QString const& filename);
+  bool LoadCalibration( QString const& filename );
+  bool SaveCalibration( QString const& filename );
 
-  bool LoadCalibrationYML(QString const& filename);
-  bool SaveCalibrationYML(QString const& filename);
+  bool LoadCalibrationYML( QString const& filename );
+  bool SaveCalibrationYML( QString const& filename );
 
-  bool SaveCalibrationMatlab(QString const& filename);
+  bool SaveCalibrationMatlab( QString const& filename );
 
-  void Display(std::ostream & stream = std::cout) const;
+  void Display( std::ostream & stream = std::cout ) const;
 
   //data
   cv::Mat Cam_K;
