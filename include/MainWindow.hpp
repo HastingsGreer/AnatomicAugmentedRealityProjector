@@ -88,6 +88,7 @@ protected slots:
   void SetProjectorWidth();
   void SetProjectorLineThickness();
   void SetProjectorLineRow();
+  void SetCameraTriggerDelay();
   void SetCameraFrameRate();
   void SetCameraNbImages();
   void SetProjectorBlueColor();

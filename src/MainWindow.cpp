@@ -70,6 +70,7 @@ MainWindow::MainWindow( QWidget *parent ) :
   connect( ui->proj_thickness, SIGNAL( valueChanged( int ) ), this, SLOT( SetProjectorLineThickness() ) );
   connect( ui->proj_row, SIGNAL( valueChanged( int ) ), this, SLOT( SetProjectorLineRow() ) );
   connect( ui->cam_framerate, SIGNAL( valueChanged( double ) ), this, SLOT( SetCameraFrameRate() ) );
+  connect( ui->trigger_delay, SIGNAL(valueChanged(double)), this, SLOT(SetCameraTriggerDelay()));
   connect( ui->cam_nbimages, SIGNAL( valueChanged( int ) ), this, SLOT( SetCameraNbImages() ) );
   connect( ui->proj_blue, SIGNAL( valueChanged( int ) ), this, SLOT( SetProjectorBlueColor() ) );
   connect( ui->proj_green, SIGNAL( valueChanged( int ) ), this, SLOT( SetProjectorGreenColor() ) );
@@ -690,6 +691,8 @@ void MainWindow::on_cam_record_clicked()
 
 void MainWindow::DisplayCamera()
 {
+  CamInput.IncrementTriggerDelay();
+
   QGraphicsScene *scene = new QGraphicsScene(this);
   ui->cam_image->setScene(scene);
   this->CurrentMat = this->CamInput.GetImageFromBuffer();
@@ -725,6 +728,11 @@ void MainWindow::SetProjectorLineRow()
   this->Projector.SetRow(ui->proj_row->value());
 }
 
+void MainWindow::SetCameraTriggerDelay()
+{
+	this->CamInput.SetCameraTriggerDelay(ui->trigger_delay->value() / 1000);
+}
+
 void MainWindow::SetCameraFrameRate()
 {
   this->CamInput.SetCameraFrameRate(ui->cam_framerate->value());
@@ -753,6 +761,7 @@ void MainWindow::SetProjectorRedColor()
 void MainWindow::on_analyze_clicked()
   {
   /***********************Start the camera***********************/
+  CamInput.SetCameraTriggerDelay(0);
   bool success = CamInput.Run();
   if( success == false )
     {
@@ -766,20 +775,6 @@ void MainWindow::on_analyze_clicked()
   cv::Mat pointcloud = cv::Mat( mat_color_ref.rows, mat_color_ref.cols, CV_32FC3 );
   cv::Mat pointcloud_colors = cv::Mat( mat_color_ref.rows, mat_color_ref.cols, CV_8UC3 );
 
-  this->CamInput.SetTopLine( mat_color_ref.rows );
-  this->CamInput.SetBottomLine( 0 );
-
-  /************************Find the top and bottom lines of te projector in the camera**************************/
-  std::cout << "Start : Find top and bottom lines" << std::endl;
-  this->TimerShots = 0;
-  while( this->TimerShots < 180 )
-    {
-    this->DisplayCamera();
-    QCoreApplication::processEvents();
-    this->CamInput.FindTopBottomLines(mat_color_ref, this->CurrentMat);
-    this->TimerShots++;
-    }
-  std::cout << "End : Find top and bottom lines" << std::endl;
 
   /***********************3D Reconstruction of other lines****************************/
   std::cout << "Start : 3D reconstruction of every line" << std::endl;
@@ -791,16 +786,18 @@ void MainWindow::on_analyze_clicked()
   cv::Mat crt_mat;
   cv::Mat color_image = cv::Mat::zeros( mat_color_ref.rows, mat_color_ref.cols, CV_8UC3 );
 
-  while( this->TimerShots < 800 )
+  double delay = 0;
+  while( delay < .012 )
     {
     this->DisplayCamera();
     QCoreApplication::processEvents();
     crt_mat = this->CamInput.GetImageFromBuffer();
-    valid = ComputePointCloud( &pointcloud, &pointcloud_colors, mat_color_ref, crt_mat, imageTest, color_image );
+    valid = ComputePointCloud( &pointcloud, &pointcloud_colors, mat_color_ref, crt_mat, imageTest, color_image, delay );
     if( valid == true )
       {
       this->TimerShots++;
       }
+	delay += .0002;
     }
 
   //imagename = QString( "C:\\Camera_Projector_Calibration\\Tests_publication\\color_image.png" );
