@@ -86,7 +86,7 @@ MainWindow::MainWindow( QWidget *parent ) :
   this->connect( timer, SIGNAL( timeout() ), SLOT( DisplayCamera() ));
 
   CalibrationData calib;
-  QString calibrationFile = "C:\\Camera_Projector_Calibration\\Tests_publication\\Calibration-ChosenPictures\\calibration.yml";
+  QString calibrationFile = "C:\\D\\3Dscan\\AnatomicAugmentedRealityProjector\\CalibrationFile.yml";
 
   bool error = this->Calib.LoadCalibration( calibrationFile );
   if( error == false )
@@ -691,7 +691,7 @@ void MainWindow::on_cam_record_clicked()
 
 void MainWindow::DisplayCamera()
 {
-  CamInput.IncrementTriggerDelay();
+  //CamInput.IncrementTriggerDelay();
 
   QGraphicsScene *scene = new QGraphicsScene(this);
   ui->cam_image->setScene(scene);
@@ -789,6 +789,7 @@ void MainWindow::on_analyze_clicked()
   double delay = 0;
   while( delay < .012 )
     {
+		this->CamInput.SetCameraTriggerDelay(delay);
     this->DisplayCamera();
     QCoreApplication::processEvents();
     crt_mat = this->CamInput.GetImageFromBuffer();
@@ -797,7 +798,7 @@ void MainWindow::on_analyze_clicked()
       {
       this->TimerShots++;
       }
-	delay += .0002;
+	delay += .0001;
     }
 
   //imagename = QString( "C:\\Camera_Projector_Calibration\\Tests_publication\\color_image.png" );
@@ -1119,39 +1120,37 @@ void MainWindow::on_analyze_clicked()
   return;
   }
 
-cv::Point3d MainWindow::approximate_ray_plane_intersection( const cv::Mat & Rt, const cv::Mat & T,
-  const cv::Point3d & vc, const cv::Point3d & qc, const cv::Point3d & vp, const cv::Point3d & qp )
+cv::Point3d MainWindow::approximate_ray_plane_intersection(const cv::Mat & T, const cv::Point3d & vc, const cv::Point3d & vp)
   {
   cv::Mat vcMat = cv::Mat( vc );
-  cv::Mat qcMat = cv::Mat( qc );
   cv::Mat vpMat = cv::Mat( vp );
-  cv::Mat qpMat = cv::Mat( qp );
 
-  cv::Mat num = vpMat.t() * ( qpMat - qcMat );
+  cv::Mat num = vpMat.t() * ( T );
   cv::Mat denum = vpMat.t()*vcMat;
   double lambda = num.at<double>(0,0) / denum.at<double>(0,0);
 
-  cv::Point3d p = lambda*vc + qc;
+  cv::Point3d p = lambda*vc;
 
   return p;
   }
 
-bool MainWindow::ComputePointCloud(cv::Mat *pointcloud, cv::Mat *pointcloud_colors, cv::Mat mat_color_ref, cv::Mat mat_color, cv::Mat imageTest, cv::Mat color_image)
+bool MainWindow::ComputePointCloud(cv::Mat *pointcloud, cv::Mat *pointcloud_colors, cv::Mat mat_color_ref, cv::Mat mat_color, cv::Mat imageTest, cv::Mat color_image, double delay)
 {
   cv::Mat mat_BGR;
   cv::Mat mat_gray;
   std::vector<cv::Point2i> cam_points;
   std::vector<cv::Point2i>::iterator it_cam_points;
   int row = 0;
-  int current_row = 0;
   cv::Point3d p;
   cv::Mat inp1( 1, 1, CV_64FC2 );
   cv::Mat outp1;
   cv::Point3d u1;
-  cv::Point3d w1, v1;
-  cv::Mat inp2( 1, 1, CV_64FC2 );
-  cv::Mat outp2;
-  cv::Point3d u2;
+  cv::Point3d projectorNormal, cameraVector;
+  cv::Mat distortedProjectorPoints( 1, 2, CV_64FC2 );
+  cv::Mat undistortedProjectorPoints;
+  cv::Point3d projectorVector1;
+  cv::Point3d projectorVector2;
+
   cv::Point3d w2, v2;
   unsigned char sat_max;
   int sum;
@@ -1180,19 +1179,15 @@ bool MainWindow::ComputePointCloud(cv::Mat *pointcloud, cv::Mat *pointcloud_colo
     sum = mat_gray.at< unsigned char >( 0, j ) + mat_gray.at< unsigned char >( 1, j ) + mat_gray.at< unsigned char >( 2, j );
     sat_max = sum;
     point_max = cv::Point2i( 0, 0 );
-    for( int i = this->CamInput.GetTopLine(); i < this->CamInput.GetBottomLine(); ++i )    //for( int i = 2; i < mat_gray.rows - 1; i++ )
+    for( int i = 2; i < mat_gray.rows - 1; ++i )    //for( int i = 2; i < mat_gray.rows - 1; i++ )
       {
       sum = sum - mat_gray.at< unsigned char >( i - 2, j ) + mat_gray.at< unsigned char >( i + 1, j );
       average = sum / 3;
-      if( average > sat_max && average > 78 )
-        {
-        point_max = cv::Point2i( j, i );
-        sat_max = average;
-        if( j > mat_gray.cols - mat_gray.cols/6 ) // We suppose that the surface is flat after this column (sheet of paper)
-          {
-          current_row = i;
-          }
-        }
+	  if (average > sat_max && average > 78)
+	  {
+		  point_max = cv::Point2i(j, i);
+		  sat_max = average;
+	  }
       }
     if( point_max != cv::Point2i( 0, 0 ) )
       {
@@ -1201,12 +1196,8 @@ bool MainWindow::ComputePointCloud(cv::Mat *pointcloud, cv::Mat *pointcloud_colo
       }
     }
 
-  if( current_row == 0 )
-    {
-    //std::cout << "Line too short" << std::endl;
-    return false;
-    }
-  row = ( current_row - this->CamInput.GetTopLine() )*this->Projector.GetHeight() / ( this->CamInput.GetBottomLine() - this->CamInput.GetTopLine() );
+  row = delay / .012 *this->Projector.GetHeight() ;
+  std::cout << "row is : " << row << std::endl;
   if( row <= 0 || row > this->Projector.GetHeight() )
     {
     std::cout << "The computed row is not valid. The line is skipped. Computed row = " << row << std::endl;
@@ -1215,15 +1206,24 @@ bool MainWindow::ComputePointCloud(cv::Mat *pointcloud, cv::Mat *pointcloud_colo
 
   // Computation of the point used to define the plane of the projector
   // to image camera coordinates
-  inp2.at<cv::Vec2d>( 0, 0 ) = cv::Vec2d( this->Projector.GetWidth(), row );
-  cv::undistortPoints( inp2, outp2, this->Calib.Proj_K, this->Calib.Proj_kc );
-  assert( outp2.type() == CV_64FC2 && outp2.rows == 1 && outp2.cols == 1 );
-  const cv::Vec2d & outvec2 = outp2.at<cv::Vec2d>( 0, 0 );
-  u2 = cv::Point3d( outvec2[ 0 ], outvec2[ 1 ], 500.0 );
+  
+  distortedProjectorPoints.at<cv::Vec2d>( 0, 0 ) = cv::Vec2d( this->Projector.GetWidth(), row );
+  distortedProjectorPoints.at<cv::Vec2d>(0, 1) = cv::Vec2d(0, row);
+
+  cv::undistortPoints( distortedProjectorPoints, undistortedProjectorPoints, this->Calib.Proj_K, this->Calib.Proj_kc );
+  assert( undistortedProjectorPoints.type() == CV_64FC2 && undistortedProjectorPoints.rows == 1 && undistortedProjectorPoints.cols == 2 );
+  const cv::Vec2d & outvec2 = undistortedProjectorPoints.at<cv::Vec2d>( 0, 0 );
+  projectorVector1 = cv::Point3d( outvec2[ 0 ], outvec2[ 1 ], 1.0 );
+
+  const cv::Vec2d & outvec3 = undistortedProjectorPoints.at<cv::Vec2d>(0, 1);
+  projectorVector2 = cv::Point3d(outvec3[0], outvec3[1], 1.0);
+
+
+
   //to world coordinates
-  w2 = cv::Point3d( cv::Mat( this->Calib.R.t()*( cv::Mat( u2 ) - this->Calib.T ) ) );
+  projectorNormal = cv::Point3d( cv::Mat( this->Calib.R.t()*( cv::Mat( projectorVector1 ).cross(cv::Mat(projectorVector2))) ) );
   // world rays = normal vector
-  v2 = u2;
+  v2 = projectorVector1;
 
   it_cam_points = cam_points.begin();
   for( it_cam_points; it_cam_points != cam_points.end(); ++it_cam_points )
@@ -1233,13 +1233,13 @@ bool MainWindow::ComputePointCloud(cv::Mat *pointcloud, cv::Mat *pointcloud_colo
     cv::undistortPoints( inp1, outp1, this->Calib.Cam_K, this->Calib.Cam_kc );
     assert( outp1.type() == CV_64FC2 && outp1.rows == 1 && outp1.cols == 1 );
     const cv::Vec2d & outvec1 = outp1.at<cv::Vec2d>( 0, 0 );
-    u1 = cv::Point3d( outvec1[ 0 ], outvec1[ 1 ], 500.0 );
+    cameraVector = cv::Point3d( outvec1[ 0 ], outvec1[ 1 ], 1 );
     //to world coordinates
-    w1 = u1;
-    //world rays
-    v1 = w1;
+    
 
-    p = approximate_ray_plane_intersection( this->Calib.R.t(), this->Calib.T, v1, w1, v2, w2 );
+    p = approximate_ray_plane_intersection(this->Calib.T, cameraVector, projectorNormal);
+
+	std::cout << p << std::endl;
 
     cv::Vec3f & cloud_point = (*pointcloud).at<cv::Vec3f>( ( *it_cam_points ).y, ( *it_cam_points ).x );
     cloud_point[ 0 ] = p.x;
