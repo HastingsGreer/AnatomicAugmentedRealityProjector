@@ -678,7 +678,7 @@ void MainWindow::on_cam_display_clicked()
   bool success = CamInput.Run();
   if( success == false )
     {
-    std::cout << "Impossible to start the camera. Analyze stopped." << std::endl;
+    //std::cout << "Impossible to start the camera. Analyze stopped." << std::endl;
     return;
     }
   this->timer->start();
@@ -766,7 +766,7 @@ void MainWindow::on_analyze_clicked()
   if( success == false )
     {
     std::cout << "Impossible to start the camera. Analyze stopped." << std::endl;
-    return;
+    //return;
     }
   this->DisplayCamera();
   QCoreApplication::processEvents();
@@ -1129,8 +1129,8 @@ bool MainWindow::ComputePointCloud(cv::Mat *pointcloud, cv::Mat *pointcloud_colo
 {
   cv::Mat mat_BGR;
   cv::Mat mat_gray;
-  std::vector<cv::Point2i> cam_points;
-  std::vector<cv::Point2i>::iterator it_cam_points;
+  std::vector<cv::Point2d> cam_points;
+  std::vector<cv::Point2d>::iterator it_cam_points;
   int row = 0;
   cv::Point3d p;
   cv::Mat inp1( 1, 1, CV_64FC2 );
@@ -1182,7 +1182,16 @@ bool MainWindow::ComputePointCloud(cv::Mat *pointcloud, cv::Mat *pointcloud_colo
       }
     if( point_max != cv::Point2i( 0, 0 ) )
       {
-      cam_points.push_back( point_max );
+      double average = 0;
+	  double COM = 0;
+      for (int y = std::max(0, point_max.y - 3); y <= std::min(point_max.y + 3, mat_gray.rows - 1); y++)
+	    {
+			average += mat_gray.at<unsigned char>(y, point_max.x);
+		    COM += y * mat_gray.at<unsigned char>(y, point_max.x);
+        }
+      
+	  double y = COM / average;
+      cam_points.push_back( cv::Point2d(point_max.x, y));
       imageTest.at<cv::Vec3b>( point_max ) = { 255, 0, 0 };
       }
     }
@@ -1488,7 +1497,7 @@ void MainWindow::density_probability( cv::Mat pointcloud, cv::Mat pointcloud_BGR
         res_BGR = std::max( { res_BGR_G, res_BGR_B, res_BGR_R } );
 
         //if( res_BGR > 5e-94 )
-        if( res_BGR > 1e-9 )
+        if( res_BGR > 1e-11 )
           {
           if( res_BGR == res_BGR_G )
             {
