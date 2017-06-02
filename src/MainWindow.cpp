@@ -23,7 +23,7 @@ limitations under the License.
 
 =========================================================================*/
 
-//#define DEBUG_POINTCLOUDS
+#define DEBUG_POINTCLOUDS
 
 #include "io_util.hpp"
 #include "MainWindow.hpp"
@@ -1178,7 +1178,7 @@ void MainWindow::on_analyze_clicked()
     {
     error.PrintErrorTrace();
     }
-  on_analyze_clicked();
+  //on_analyze_clicked();
 
   return;
   }

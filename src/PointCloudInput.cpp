@@ -66,11 +66,13 @@ PointCloud PointCloudInput::ComputePointCloud(){
 	cv::Mat mat_color_ref = this->CamInput->GetImageFromBuffer();
 
 	double max_delay = .0119;
-	int numrows = 70;
-	double delta = max_delay / numrows;
+	int num_iterations = 35;
+	float delay_per_extra_row = .003;
+	int num_rows_per_trigger = 2;
+	double delta_per_iteration = (max_delay - delay_per_extra_row * (num_rows_per_trigger - 1)) / num_iterations;
 
-	cv::Mat pointcloud = cv::Mat(numrows, mat_color_ref.cols, CV_32FC3);
-	cv::Mat pointcloud_colors = cv::Mat(numrows, mat_color_ref.cols, CV_8UC3);
+	cv::Mat pointcloud = cv::Mat(num_iterations * num_rows_per_trigger, mat_color_ref.cols, CV_32FC3);
+	cv::Mat pointcloud_colors = cv::Mat(num_iterations * num_rows_per_trigger, mat_color_ref.cols, CV_8UC3);
 
 
 	/***********************3D Reconstruction of other lines****************************/
@@ -79,23 +81,39 @@ PointCloud PointCloudInput::ComputePointCloud(){
 	cv::Mat imageTest = cv::Mat::zeros(mat_color_ref.rows, mat_color_ref.cols, CV_8UC3);
 	bool valid;
 	QString imagename;
-	cv::Mat crt_mat, prev_mat;
+	cv::Mat crt_mat;
 	cv::Mat color_image = cv::Mat::zeros(mat_color_ref.rows, mat_color_ref.cols, CV_8UC3);
 
 	
 
 	this->CamInput->SetCameraTriggerDelay(0);
-	for (int depth_map_row = 0; depth_map_row < numrows; depth_map_row++)
+	for (int iteration = 0; iteration < num_iterations; iteration++)
 	{
 		//this->DisplayCamera();
 		//QCoreApplication::processEvents();
-		prev_mat = crt_mat;
+
+		double delay = delta_per_iteration * iteration;
+
+		for (int extra_row_id = 0; extra_row_id < num_rows_per_trigger - 1; extra_row_id++){
+			crt_mat = this->CamInput->GetImageFromBuffer();
+			valid = ComputePointCloudRow(&pointcloud, &pointcloud_colors, mat_color_ref, crt_mat, 
+			                             imageTest, color_image, delay + extra_row_id * delay_per_extra_row,
+										 iteration * num_rows_per_trigger + extra_row_id);
+
+		}
+
+
 		crt_mat = this->CamInput->GetImageFromBuffer();
-		double delay = depth_map_row * delta;
+		
 		//begin changing the delay for the next image before processing the current image. There are silent errors
 		//if you take a picture too soon after changing the delay
-		this->CamInput->SetCameraTriggerDelay(delay);
-		valid = ComputePointCloudRow(&pointcloud, &pointcloud_colors, mat_color_ref, crt_mat, imageTest, color_image, delay - delta, depth_map_row);
+
+		double next_delay = (iteration + 1 ) * delta_per_iteration;
+		this->CamInput->SetCameraTriggerDelay(next_delay);
+		valid = ComputePointCloudRow(&pointcloud, &pointcloud_colors, mat_color_ref, crt_mat, 
+		                             imageTest, color_image, delay + (num_rows_per_trigger - 1) * delay_per_extra_row, 
+									 iteration * num_rows_per_trigger + num_rows_per_trigger - 1);
+
 	}
 
 	//imagename = QString( "C:\\Camera_Projector_Calibration\\Tests_publication\\color_image.png" );
